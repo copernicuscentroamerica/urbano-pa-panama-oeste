@@ -1124,6 +1124,7 @@ def build_aplicacion_page(
             <div><strong>{esc(layers_cfg.get('title', manifest['title']))}</strong> · Motor MapLibre / GeoLibre</div>
             <div class="geovisor-toolbar-actions">
               <button type="button" id="gv-toggle-fullscreen" class="btn btn-teal btn-xs" title="Ver el geovisor en pantalla completa (Esc para salir)">⛶ Pantalla completa</button>
+              <button type="button" id="gv-toggle-legend" class="btn btn-outline-light btn-xs" aria-expanded="true" aria-controls="gv-layer-legend">▤ Leyenda</button>
               <button type="button" id="gv-toggle-sidebar" class="btn btn-outline-light btn-xs" title="Ocultar o mostrar el panel lateral de capas">⇄ Panel lateral</button>
               <button type="button" id="gv-open-folder-tab" class="btn btn-outline-light btn-xs">Cargar desde carpeta</button>
               <button type="button" id="gv-reset-view" class="btn btn-outline-light btn-xs">Encuadre inicial</button>
@@ -1133,6 +1134,10 @@ def build_aplicacion_page(
             </div>
           </div>
           <div id="geovisor-map-canvas" class="geovisor-canvas" role="region" aria-label="Mapa interactivo del proyecto"></div>
+          <section id="gv-layer-legend" class="geovisor-legend" aria-label="Leyenda de capas del mapa">
+            <h2 class="geovisor-legend-title">Leyenda de capas</h2>
+            <div id="gv-layer-legend-content" aria-live="polite"></div>
+          </section>
           <iframe id="geolibre-embed-iframe" class="geovisor-iframe" title="Visor GeoLibre embebido" allowfullscreen loading="lazy"></iframe>
           <div class="geovisor-statusbar">
             <span id="gv-coords-readout">Encuadre referencial inicial: Lat {mv.get('center', [0, 0])[1]:.4f} · Lon {mv.get('center', [0, 0])[0]:.4f}</span>

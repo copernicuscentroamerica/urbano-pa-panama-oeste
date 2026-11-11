@@ -240,6 +240,13 @@
       "resolution": "Vectorial institucional reproyectado a EPSG:4326",
       "style": {
         "fill_color": "#AF7AC5",
+        "fill_color_attribute": "distance",
+        "fill_color_categories": [
+          { "value": 500, "label": "500 m", "color": "#FFF176" },
+          { "value": 1000, "label": "1.000 m", "color": "#FBC02D" },
+          { "value": 2000, "label": "2.000 m", "color": "#9C6ADE" },
+          { "value": 3000, "label": "3.000 m", "color": "#5E2B97" }
+        ],
         "fill_opacity": 0.25,
         "stroke_color": "#76448A",
         "stroke_width": 1.0
@@ -258,6 +265,12 @@
       "resolution": "Vectorial institucional reproyectado a EPSG:4326",
       "style": {
         "fill_color": "#5DADE2",
+        "fill_color_attribute": "distance",
+        "fill_color_categories": [
+          { "value": 250, "label": "250 m", "color": "#BFEFFF" },
+          { "value": 500, "label": "500 m", "color": "#5DADE2" },
+          { "value": 1000, "label": "1.000 m", "color": "#2166AC" }
+        ],
         "fill_opacity": 0.22,
         "stroke_color": "#2E86C1",
         "stroke_width": 1.0
@@ -276,6 +289,12 @@
       "resolution": "Vectorial institucional (EPSG:4326)",
       "style": {
         "fill_color": "#F39C12",
+        "fill_color_attribute": "PROXIMIDAD",
+        "fill_color_categories": [
+          { "value": 100, "label": "100 m", "color": "#FFEB3B" },
+          { "value": 300, "label": "300 m", "color": "#FF9800" },
+          { "value": 500, "label": "500 m", "color": "#D32F2F" }
+        ],
         "fill_opacity": 0.20,
         "stroke_color": "#D68910",
         "stroke_width": 1.0
@@ -363,7 +382,13 @@
       "expected_file_hint": "URL COG o tile service externo para COBERTURA_USOSUELO.tif",
       "resolution": "Ráster institucional (pendiente de publicación como COG)",
       "style": {
-        "palette": ["#2ca02c", "#d62728", "#ff7f0e", "#1f77b4"]
+        "classvalue_attribute": "Classvalue",
+        "classvalue_categories": [
+          { "value": 1, "label": "1", "color": "#4CAF50" },
+          { "value": 10, "label": "10", "color": "#D2A679" },
+          { "value": 26, "label": "26", "color": "#FFEB3B" }
+        ],
+        "palette": ["#4CAF50", "#D2A679", "#FFEB3B"]
       },
       "caveat": "Archivo ráster COBERTURA_USOSUELO.tif (23.7 MB) pendiente de conversión a Cloud-Optimized GeoTIFF y alojamiento externo."
     },

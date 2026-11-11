@@ -1187,6 +1187,118 @@
     var localGeoJsonCache = null;
     var initialBoundsFitted = false;
 
+    function updateLayerLegend() {
+      var legendContent = document.getElementById("gv-layer-legend-content");
+      if (!legendContent) return;
+      legendContent.textContent = "";
+
+      function appendLegendLayer(title, style, description, visible, symbolLabel) {
+        if (!visible) return;
+        var layerEl = document.createElement("section");
+        layerEl.className = "geovisor-legend-layer";
+        var titleEl = document.createElement("h3");
+        titleEl.className = "geovisor-legend-layer-title";
+        titleEl.textContent = title;
+        layerEl.appendChild(titleEl);
+
+        var categories = style && (style.fill_color_categories || style.classvalue_categories);
+        var attribute = style && (style.fill_color_attribute || style.classvalue_attribute);
+        if (Array.isArray(categories) && categories.length) {
+          categories.forEach(function (category) {
+            var row = document.createElement("div");
+            row.className = "geovisor-legend-item";
+            var swatch = document.createElement("span");
+            swatch.className = "geovisor-legend-swatch";
+            swatch.style.backgroundColor = category.color || "#7A8798";
+            swatch.setAttribute("aria-hidden", "true");
+            var label = document.createElement("span");
+            label.textContent = category.label || String(category.value);
+            row.appendChild(swatch);
+            row.appendChild(label);
+            layerEl.appendChild(row);
+
+            if (category.description) {
+              var categoryDescription = document.createElement("p");
+              categoryDescription.className = "geovisor-legend-description";
+              categoryDescription.textContent = category.description;
+              layerEl.appendChild(categoryDescription);
+            }
+          });
+          if (attribute) {
+            var attributeNote = document.createElement("p");
+            attributeNote.className = "geovisor-legend-description";
+            attributeNote.textContent = "Categorías por " + attribute + ".";
+            layerEl.appendChild(attributeNote);
+          }
+        } else {
+          var row = document.createElement("div");
+          row.className = "geovisor-legend-item";
+          var swatch = document.createElement("span");
+          swatch.className = "geovisor-legend-swatch";
+          swatch.style.backgroundColor = (style && style.fill_color) || (style && style.palette && style.palette[0]) || "#007F8B";
+          swatch.setAttribute("aria-hidden", "true");
+          var label = document.createElement("span");
+          label.textContent = symbolLabel || "Símbolo de la capa";
+          row.appendChild(swatch);
+          row.appendChild(label);
+          layerEl.appendChild(row);
+        }
+
+        if (description) {
+          var descriptionEl = document.createElement("p");
+          descriptionEl.className = "geovisor-legend-description";
+          descriptionEl.textContent = description;
+          layerEl.appendChild(descriptionEl);
+        }
+        legendContent.appendChild(layerEl);
+      }
+
+      var customSymbolLabels = {
+        "pa-area-estudio-miviot": "Área de estudio",
+        "pa-area-urbanizada-construida-miviot": "Área urbanizada/construida",
+        "pa-cambio-construccion-2018-2025": "Cambio en la mancha de construcción",
+        "pa-hidrografia-miviot": "Hidrografía",
+        "pa-perdida-vegetacion-2018-2025": "Cambio en la mancha de vegetación",
+        "pa-red-vial-miviot": "Red víal"
+      };
+      (cfg.layers || []).forEach(function (lyr) {
+        if (!lyr.source_path || (lyr.status !== "publicado" && lyr.status !== "en_revision")) return;
+        var toggle = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
+        appendLegendLayer(
+          lyr.title,
+          lyr.style || {},
+          lyr.caveat || "",
+          !toggle || toggle.checked,
+          customSymbolLabels[lyr.id] || "Símbolo de la capa"
+        );
+      });
+
+      Object.keys(dynamicFolderLayers).forEach(function (name) {
+        var entry = dynamicFolderLayers[name];
+        appendLegendLayer(name, { fill_color: entry.color }, "Capa vectorial cargada desde la carpeta del repositorio.", entry.visible);
+      });
+
+      if (!legendContent.children.length) {
+        var empty = document.createElement("p");
+        empty.className = "geovisor-legend-description";
+        empty.textContent = "Activa una capa para ver su simbología y descripción.";
+        legendContent.appendChild(empty);
+      }
+    }
+
+    var legendToggle = document.getElementById("gv-toggle-legend");
+    var legendPanel = document.getElementById("gv-layer-legend");
+    if (legendToggle && legendPanel) {
+      legendToggle.addEventListener("click", function () {
+        var collapsed = legendPanel.classList.toggle("is-collapsed");
+        legendToggle.setAttribute("aria-expanded", String(!collapsed));
+      });
+    }
+    document.querySelectorAll("[data-layer-toggle]").forEach(function (toggle) {
+      toggle.addEventListener("change", updateLayerLegend);
+    });
+    updateLayerLegend();
+
     function attachFeatureClickPopup(layerId, badgeTitle, defaultTitle) {
       mapInstance.on("click", layerId, function (e) {
         if (!e.features || !e.features.length) return;
@@ -1263,6 +1375,15 @@
 
         if (lyr.format === "geojson") {
           var fillColor = (lyr.style && lyr.style.fill_color) || "#007F8B";
+          var fillColorAttribute = lyr.style && lyr.style.fill_color_attribute;
+          var fillColorCategories = lyr.style && lyr.style.fill_color_categories;
+          if (fillColorAttribute && Array.isArray(fillColorCategories) && fillColorCategories.length) {
+            fillColor = ["match", ["get", fillColorAttribute]];
+            fillColorCategories.forEach(function (category) {
+              fillColor.push(category.value, category.color);
+            });
+            fillColor.push((fillColorCategories[fillColorCategories.length - 1] || {}).color || "#007F8B");
+          }
           var fillOpacity = (lyr.style && lyr.style.fill_opacity) !== undefined ? lyr.style.fill_opacity : 0.22;
           var strokeColor = (lyr.style && lyr.style.stroke_color) || "#14283F";
           var strokeWidth = (lyr.style && lyr.style.stroke_width) || 2;
@@ -1507,6 +1628,7 @@
         if (mapInstance.getSource("src-" + safeId)) mapInstance.removeSource("src-" + safeId);
         btnEl.textContent = "Cargar en mapa";
         btnEl.className = "btn btn-teal btn-xs";
+        updateLayerLegend();
         return;
       }
 
@@ -1545,6 +1667,7 @@
           if (folderStatusEl) {
             folderStatusEl.textContent = "Capa cargada desde carpeta del repositorio: " + fname;
           }
+          updateLayerLegend();
         })
         .catch(function (err) {
           btnEl.disabled = false;
