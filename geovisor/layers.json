@@ -286,6 +286,14 @@
       "resolution": "Vectorial institucional (EPSG:4326)",
       "style": {
         "fill_color": "#E67E22",
+        "fill_color_attribute": "gridcode",
+        "fill_color_categories": [
+          { "value": 1, "label": "Menor probabilidad", "color": "#FFF3B0" },
+          { "value": 2, "label": "Probabilidad media", "color": "#FDB863" },
+          { "value": 3, "label": "Menor probabilidad", "color": "#D73027" }
+        ],
+        "fill_color_fallback": "#8A8F98",
+        "fill_color_fallback_label": "Otros valores",
         "fill_opacity": 0.45,
         "stroke_color": "#BA4A00",
         "stroke_width": 0.8
