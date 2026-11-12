@@ -1274,7 +1274,23 @@
         "pa-perdida-vegetacion-2018-2025": "Cambio en la mancha de vegetación",
         "pa-red-vial-miviot": "Red víal"
       };
-      (cfg.layers || []).forEach(function (lyr) {
+      var projectLayers = Array.isArray(cfg.layers) ? cfg.layers : [];
+      var projectLayersById = {};
+      projectLayers.forEach(function (lyr) {
+        projectLayersById[lyr.id] = lyr;
+      });
+      var usedLayerIds = {};
+      var legendLayers = [];
+      (Array.isArray(cfg.sidebar_order) ? cfg.sidebar_order : []).forEach(function (layerId) {
+        if (projectLayersById[layerId]) {
+          legendLayers.push(projectLayersById[layerId]);
+          usedLayerIds[layerId] = true;
+        }
+      });
+      projectLayers.forEach(function (lyr) {
+        if (!usedLayerIds[lyr.id]) legendLayers.push(lyr);
+      });
+      legendLayers.forEach(function (lyr) {
         if (!lyr.source_path || (lyr.status !== "publicado" && lyr.status !== "en_revision")) return;
         var toggle = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
         appendLegendLayer(

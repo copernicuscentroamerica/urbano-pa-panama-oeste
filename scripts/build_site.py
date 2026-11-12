@@ -864,31 +864,32 @@ def build_aplicacion_page(
 ) -> str:
     pid = manifest["id"]
     mv = layers_cfg.get("map_view", {})
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for lyr in layers_cfg.get("layers", []):
-        grp = lyr.get("group", "Capas del proyecto")
-        grouped.setdefault(grp, []).append(lyr)
+    all_layers = layers_cfg.get("layers", [])
+    layers_by_id = {lyr.get("id"): lyr for lyr in all_layers}
+    sidebar_order = [
+        layer_id for layer_id in layers_cfg.get("sidebar_order", [])
+        if layer_id in layers_by_id
+    ]
+    primary_layers = [layers_by_id[layer_id] for layer_id in sidebar_order]
+    primary_ids = set(sidebar_order)
+    remaining_layers = [lyr for lyr in all_layers if lyr.get("id") not in primary_ids]
 
-    groups_html: list[str] = []
-    for grp_name, items in grouped.items():
-        items_html: list[str] = []
-        for lyr in items:
-            lid = lyr["id"]
-            is_ready = bool(lyr.get("source_path")) and lyr.get("status") in ("publicado", "en_revision")
-            disabled_attr = "" if is_ready else " disabled"
-            checked_attr = " checked" if is_ready else ""
-            hint_html = (
-                f'<div class="layer-item-meta">Ruta esperada para activar: <code>{esc(lyr.get("expected_file_hint"))}</code></div>'
-                if not is_ready and lyr.get("expected_file_hint")
-                else ""
-            )
-            caveat_html = (
-                f'<div class="layer-item-caveat">{esc(lyr.get("caveat"))}</div>'
-                if lyr.get("caveat")
-                else ""
-            )
-            items_html.append(
-                f"""
+    def render_layer_card(lyr: dict[str, Any]) -> str:
+        lid = lyr["id"]
+        is_ready = bool(lyr.get("source_path")) and lyr.get("status") in ("publicado", "en_revision")
+        disabled_attr = "" if is_ready else " disabled"
+        checked_attr = " checked" if is_ready else ""
+        hint_html = (
+            f'<div class="layer-item-meta">Ruta esperada para activar: <code>{esc(lyr.get("expected_file_hint"))}</code></div>'
+            if not is_ready and lyr.get("expected_file_hint")
+            else ""
+        )
+        caveat_html = (
+            f'<div class="layer-item-caveat">{esc(lyr.get("caveat"))}</div>'
+            if lyr.get("caveat")
+            else ""
+        )
+        return f"""
                 <div class="layer-item">
                   <div class="layer-item-head">
                     <label class="layer-item-title">
@@ -906,8 +907,21 @@ def build_aplicacion_page(
                   {caveat_html}
                 </div>
                 """
-            )
-        groups_html.append(f'<div class="layer-group-title">{esc(grp_name)}</div>' + "".join(items_html))
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for lyr in remaining_layers:
+        grp = lyr.get("group", "Capas del proyecto")
+        grouped.setdefault(grp, []).append(lyr)
+
+    groups_html: list[str] = []
+    if primary_layers:
+        primary_html = "".join(render_layer_card(lyr) for lyr in primary_layers)
+        groups_html.append('<div class="layer-group-title">Capas principales</div>' + primary_html)
+    if grouped:
+        groups_html.append('<div class="layer-group-title">Otras capas</div>')
+    for grp_name, items in grouped.items():
+        items_html = "".join(render_layer_card(lyr) for lyr in items)
+        groups_html.append(f'<div class="layer-group-title">{esc(grp_name)}</div>' + items_html)
 
     controls_li = "".join(f"<li>{esc(c)}</li>" for c in layers_cfg.get("planned_controls", []))
     ext_refs_html = ""

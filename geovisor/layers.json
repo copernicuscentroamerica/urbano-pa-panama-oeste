@@ -2,6 +2,19 @@
   "schema_version": "1.0.0",
   "project_id": "pa-panama-oeste",
   "title": "Panamá Oeste: expansión urbana y ocupación potencial",
+  "sidebar_order": [
+    "pa-probabilidad-ocupacion-miviot",
+    "pa-red-vial-miviot",
+    "pa-proximidad-red-vial",
+    "pa-hidrografia-miviot",
+    "pa-proximidad-hidrica",
+    "pa-area-urbanizada-construida-miviot",
+    "pa-proximidad-area-urbanizada",
+    "pa-cobertura-boscosa-miviot",
+    "pa-perdida-vegetacion-2018-2025",
+    "pa-cambio-construccion-2018-2025",
+    "pa-area-estudio-miviot"
+  ],
   "country": {
     "code": "PA",
     "name": "Panamá"
