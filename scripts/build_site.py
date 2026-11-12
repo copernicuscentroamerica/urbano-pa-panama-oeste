@@ -1098,10 +1098,6 @@ def build_aplicacion_page(
               </div>
             </div>
 
-            <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.83rem;font-weight:600;margin-bottom:0.6rem;">
-              <input type="checkbox" id="gv-toggle-ref-marker" checked>
-              <span>Mostrar marcador de centroide referencial</span>
-            </label>
             {"".join(groups_html)}
           </div>
 

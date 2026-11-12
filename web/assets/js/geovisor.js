@@ -1143,30 +1143,6 @@
         });
       }
 
-      // Marcador de centroide referencial
-      var refCentroid = (cfg.map_view && cfg.map_view.declared_centroid) || center;
-      var popupNode = createSafePopupElement(
-        cfg.title || cfg.project_id,
-        [
-          ["Coordenada referencial", refCentroid[1].toFixed(5) + ", " + refCentroid[0].toFixed(5)],
-          ["Escala", (cfg.map_view && cfg.map_view.scale_label) || "Documentada en ficha"],
-          ["Nota", (cfg.map_view && cfg.map_view.reference_note) || "Ubicación referencial"]
-        ],
-        "PUNTO DE REFERENCIA DEL PERFIL"
-      );
-      var refMarker = new window.maplibregl.Marker({ color: "#007F8B" })
-        .setLngLat(refCentroid)
-        .setPopup(new window.maplibregl.Popup({ offset: 24 }).setDOMContent(popupNode))
-        .addTo(mapInstance);
-
-      var toggleRefCheck = document.getElementById("gv-toggle-ref-marker");
-      if (toggleRefCheck) {
-        toggleRefCheck.addEventListener("change", function () {
-          if (toggleRefCheck.checked) refMarker.addTo(mapInstance);
-          else refMarker.remove();
-        });
-      }
-
       var coordsStatus = document.getElementById("gv-coords-readout");
       mapInstance.on("mousemove", function (e) {
         if (coordsStatus) {

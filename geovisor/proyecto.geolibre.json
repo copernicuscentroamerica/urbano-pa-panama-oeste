@@ -10238,27 +10238,6 @@
         "id": "pa-pilotos-grupo9",
         "status": "en_revision",
         "title": "Tres polígonos piloto suministrados (Grupo 9 — KML convertidos)"
-      },
-      {
-        "caveat": "NDBI usa banda B11 de 20 m; no debe interpretarse como precisión de 10 m ni confundirse con suelo desnudo estacional.",
-        "expected_file_hint": "URL XYZ/Tile de GEE o COG en servicio externo",
-        "id": "pa-ndbi-ndvi-cambio",
-        "status": "en_preparacion",
-        "title": "Diferencia multitemporal ΔNDBI / ΔNDVI (20 m)"
-      },
-      {
-        "caveat": "Detección preliminar sujeta a matriz de confusión con ortofotos, PLOT y verificación institucional de MIVIOT.",
-        "expected_file_hint": "geovisor/capas/candidatos_cambio.geojson",
-        "id": "pa-candidatos-cambio",
-        "status": "en_preparacion",
-        "title": "Polígonos candidatos de cambio construido"
-      },
-      {
-        "caveat": "Representa densidad espacial de señales de cambio; NO es temperatura superficial ni certificación jurídica.",
-        "expected_file_hint": "URL XYZ/Tile o COG de intensidad focal",
-        "id": "pa-intensidad-cambio",
-        "status": "en_preparacion",
-        "title": "Intensidad relativa de concentración de cambios"
       }
     ],
     "project_id": "pa-panama-oeste",

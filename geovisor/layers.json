@@ -108,62 +108,6 @@
       "caveat": "Convertidos de los KML originales del expediente (Área de Proyecto 1, Crecimiento Informal, Zona de Invasión). Los nombres son etiquetas de trabajo y NO acreditan informalidad ni invasión."
     },
     {
-      "id": "pa-ndbi-ndvi-cambio",
-      "title": "Diferencia multitemporal ΔNDBI / ΔNDVI (20 m)",
-      "group": "Análisis espectral Copernicus",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL XYZ/Tile de GEE o COG en servicio externo",
-      "resolution": "20 m (banda SWIR B11 nativa)",
-      "style": {
-        "palette": [
-          "#2166ac",
-          "#f7f7f7",
-          "#b2182b"
-        ]
-      },
-      "caveat": "NDBI usa banda B11 de 20 m; no debe interpretarse como precisión de 10 m ni confundirse con suelo desnudo estacional."
-    },
-    {
-      "id": "pa-candidatos-cambio",
-      "title": "Polígonos candidatos de cambio construido",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "geovisor/capas/candidatos_cambio.geojson",
-      "resolution": "Derivado a 20 m (filtro >= 0,05 ha)",
-      "style": {
-        "fill_color": "#d95f02",
-        "fill_opacity": 0.45,
-        "stroke_color": "#8c2d04",
-        "stroke_width": 1.5
-      },
-      "caveat": "Detección preliminar sujeta a matriz de confusión con ortofotos, PLOT y verificación institucional de MIVIOT."
-    },
-    {
-      "id": "pa-intensidad-cambio",
-      "title": "Intensidad relativa de concentración de cambios",
-      "group": "Priorización e inspección",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL XYZ/Tile o COG de intensidad focal",
-      "resolution": "20 m (suavizado focal 30 m)",
-      "style": {
-        "palette": [
-          "#ffffcc",
-          "#fd8d3c",
-          "#800026"
-        ]
-      },
-      "caveat": "Representa densidad espacial de señales de cambio; NO es temperatura superficial ni certificación jurídica."
-    },
-    {
       "id": "pa-area-estudio-miviot",
       "title": "Área de estudio: distritos de Arraiján y La Chorrera",
       "group": "Ámbito y referencia",
@@ -401,42 +345,6 @@
         "stroke_width": 0.8
       },
       "caveat": "Áreas clasificadas por niveles de probabilidad de ocupación informal. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-cobertura-usosuelo-raster",
-      "title": "Cobertura y uso del suelo (ráster)",
-      "group": "Cobertura y uso del suelo",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL COG o tile service externo para COBERTURA_USOSUELO.tif",
-      "resolution": "Ráster institucional (pendiente de publicación como COG)",
-      "style": {
-        "classvalue_attribute": "Classvalue",
-        "classvalue_categories": [
-          { "value": 1, "label": "Bosques", "color": "#4CAF50" },
-          { "value": 10, "label": "Vegetación arbustiva", "color": "#D2A679" },
-          { "value": 26, "label": "Pasto-Suelo desnudo", "color": "#FFEB3B" }
-        ],
-        "palette": ["#4CAF50", "#D2A679", "#FFEB3B"]
-      },
-      "caveat": "Archivo ráster COBERTURA_USOSUELO.tif (23.7 MB) pendiente de conversión a Cloud-Optimized GeoTIFF y alojamiento externo."
-    },
-    {
-      "id": "pa-probabilidad-ocupacion-raster",
-      "title": "Probabilidad de ocupación (ráster)",
-      "group": "Priorización e inspección",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL COG o tile service externo para PROBABILIDAD_OCUPACION.tif",
-      "resolution": "Ráster institucional (pendiente de publicación como COG)",
-      "style": {
-        "palette": ["#ffffcc", "#fd8d3c", "#800026"]
-      },
-      "caveat": "Archivo ráster PROBABILIDAD_OCUPACION.tif (16.5 MB) pendiente de conversión a Cloud-Optimized GeoTIFF y alojamiento externo."
     }
   ]
 }
