@@ -40,9 +40,9 @@
       8.94515
     ],
     "is_referential": true,
-    "reference_note": "Centroide referencial declarado en la ficha técnica S02 (8.94515, -79.75532) para Arraiján y La Chorrera (~89.115 ha). Los tres polígonos piloto del Grupo 9 se visualizan como geometrías preliminares de trabajo (en revisión técnica) sujetas a homologación topológica e institucional con MIVIOT.",
-    "area_declared": "89.115 ha (≈ 891 km²) según polígono del formulario en S02; tres áreas piloto separadas en G9.",
-    "scale_label": "Área metropolitana / conurbación y polígonos piloto"
+    "reference_note": "Centroide referencial declarado en la ficha técnica S02 (8.94515, -79.75532) para Arraiján y La Chorrera (~89.115 ha).",
+    "area_declared": "89.115 ha (≈ 891 km²) según polígono del formulario en S02.",
+    "scale_label": "Área metropolitana / conurbación"
   },
   "geolibre_integration": {
     "web_app_base_url": "https://web.geolibre.app/",
@@ -71,24 +71,6 @@
     }
   ],
   "layers": [
-    {
-      "id": "pa-pilotos-grupo9",
-      "title": "Tres polígonos piloto suministrados (Grupo 9 — KML convertidos)",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/pilotos_grupo9_panama_oeste.geojson",
-      "expected_file_hint": "geovisor/capas/pilotos_grupo9_panama_oeste.geojson",
-      "resolution": "Vectorial local suministrado (EPSG:4326)",
-      "style": {
-        "fill_color": "#007F8B",
-        "fill_opacity": 0.35,
-        "stroke_color": "#004c54",
-        "stroke_width": 2.5
-      },
-      "caveat": "Convertidos de los KML originales del expediente (Área de Proyecto 1, Crecimiento Informal, Zona de Invasión). Los nombres son etiquetas de trabajo y NO acreditan informalidad ni invasión."
-    },
     {
       "id": "pa-area-estudio-miviot",
       "title": "Área de estudio: distritos de Arraiján y La Chorrera",
@@ -265,24 +247,6 @@
         "stroke_width": 1.5
       },
       "caveat": "Vías principales del área de estudio y alrededores. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-perimetro-zona-estudio",
-      "title": "Perímetro de la zona de estudio",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/perimetro_zona_estudio.geojson",
-      "expected_file_hint": "geovisor/capas/perimetro_zona_estudio.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#000A62",
-        "fill_opacity": 0.05,
-        "stroke_color": "#000A62",
-        "stroke_width": 2.0
-      },
-      "caveat": "Límite perimetral y máscara del área de estudio. Fuente: equipo MIVIOT."
     },
     {
       "id": "pa-cobertura-boscosa-miviot",
