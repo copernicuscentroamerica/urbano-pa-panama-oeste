@@ -17,9 +17,9 @@
       8.94515
     ],
     "is_referential": true,
-    "reference_note": "Centroide referencial declarado en la ficha técnica S02 (8.94515, -79.75532) para Arraiján y La Chorrera (~89.115 ha).",
-    "area_declared": "89.115 ha (≈ 891 km²) según polígono del formulario en S02.",
-    "scale_label": "Área metropolitana / conurbación"
+    "reference_note": "Centroide referencial declarado en la ficha técnica S02 (8.94515, -79.75532) para Arraiján y La Chorrera (~89.115 ha). Los tres polígonos piloto del Grupo 9 se visualizan como geometrías preliminares de trabajo (en revisión técnica) sujetas a homologación topológica e institucional con MIVIOT.",
+    "area_declared": "89.115 ha (≈ 891 km²) según polígono del formulario en S02; tres áreas piloto separadas en G9.",
+    "scale_label": "Área metropolitana / conurbación y polígonos piloto"
   },
   "geolibre_integration": {
     "web_app_base_url": "https://web.geolibre.app/",

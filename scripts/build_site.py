@@ -1081,21 +1081,8 @@ def build_aplicacion_page(
                   {caveat_html}
                 </div>
                 """
-
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for lyr in remaining_layers:
-        grp = lyr.get("group", "Capas del proyecto")
-        grouped.setdefault(grp, []).append(lyr)
-
-    groups_html: list[str] = []
-    for group_title, group_layers in sidebar_groups:
-        group_html = "".join(render_layer_card(lyr) for lyr in group_layers)
-        groups_html.append(f'<div class="layer-group-title">{esc(group_title)}</div>' + group_html)
-    if grouped:
-        groups_html.append('<div class="layer-group-title">Otras capas</div>')
-    for grp_name, items in grouped.items():
-        items_html = "".join(render_layer_card(lyr) for lyr in items)
-        groups_html.append(f'<div class="layer-group-title">{esc(grp_name)}</div>' + items_html)
+            )
+        groups_html.append(f'<div class="layer-group-title">{esc(grp_name)}</div>' + "".join(items_html))
 
     controls_li = "".join(f"<li>{esc(c)}</li>" for c in layers_cfg.get("planned_controls", []))
     effective_repo_slug = (
@@ -1266,6 +1253,10 @@ def build_aplicacion_page(
               </div>
             </div>
 
+            <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.83rem;font-weight:600;margin-bottom:0.6rem;">
+              <input type="checkbox" id="gv-toggle-ref-marker" checked>
+              <span>Mostrar marcador de centroide referencial</span>
+            </label>
             {"".join(groups_html)}
           </div>
 
