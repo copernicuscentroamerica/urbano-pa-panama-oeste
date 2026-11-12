@@ -372,9 +372,9 @@
         "fill_color": "#27AE60",
           "fill_color_attribute": "gridcode",
           "fill_color_categories": [
-            { "value": 1, "label": "1", "color": "#4CAF50" },
-            { "value": 10, "label": "10", "color": "#D2A679" },
-            { "value": 26, "label": "26", "color": "#FFEB3B" }
+            { "value": 1, "label": "Bosques", "color": "#4CAF50" },
+            { "value": 10, "label": "Vegetación arbustiva", "color": "#D2A679" },
+            { "value": 26, "label": "Pasto-Suelo desnudo", "color": "#FFEB3B" }
           ],
           "fill_color_fallback": "#8A8F98",
           "fill_color_fallback_label": "Otros códigos",
@@ -415,9 +415,9 @@
       "style": {
         "classvalue_attribute": "Classvalue",
         "classvalue_categories": [
-          { "value": 1, "label": "1", "color": "#4CAF50" },
-          { "value": 10, "label": "10", "color": "#D2A679" },
-          { "value": 26, "label": "26", "color": "#FFEB3B" }
+          { "value": 1, "label": "Bosques", "color": "#4CAF50" },
+          { "value": 10, "label": "Vegetación arbustiva", "color": "#D2A679" },
+          { "value": 26, "label": "Pasto-Suelo desnudo", "color": "#FFEB3B" }
         ],
         "palette": ["#4CAF50", "#D2A679", "#FFEB3B"]
       },
