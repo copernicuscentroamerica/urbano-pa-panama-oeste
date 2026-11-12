@@ -72,24 +72,6 @@
   ],
   "layers": [
     {
-      "id": "pa-distritos-referencia-osm",
-      "title": "Límite distrital referencial: Arraiján y La Chorrera (OSM ODbL)",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/distritos_arraijan_la_chorrera_osm.geojson",
-      "expected_file_hint": "geovisor/capas/distritos_arraijan_la_chorrera_osm.geojson",
-      "resolution": "Vectorial administrativo referencial (EPSG:4326)",
-      "style": {
-        "fill_color": "#14283F",
-        "fill_opacity": 0.08,
-        "stroke_color": "#14283F",
-        "stroke_width": 2.2
-      },
-      "caveat": "Fuente externa abierta: OpenStreetMap contributors (ODbL). Carácter referencial sujeto a homologación con cartografía oficial INEC/MIVIOT."
-    },
-    {
       "id": "pa-pilotos-grupo9",
       "title": "Tres polígonos piloto suministrados (Grupo 9 — KML convertidos)",
       "group": "Ámbito y referencia",
