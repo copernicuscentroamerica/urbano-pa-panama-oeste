@@ -347,11 +347,19 @@
       "resolution": "Vectorial institucional (EPSG:4326)",
       "style": {
         "fill_color": "#27AE60",
+          "fill_color_attribute": "gridcode",
+          "fill_color_categories": [
+            { "value": 1, "label": "1", "color": "#4CAF50" },
+            { "value": 10, "label": "10", "color": "#D2A679" },
+            { "value": 26, "label": "26", "color": "#FFEB3B" }
+          ],
+          "fill_color_fallback": "#8A8F98",
+          "fill_color_fallback_label": "Otros códigos",
         "fill_opacity": 0.40,
         "stroke_color": "#1E8449",
         "stroke_width": 0.8
       },
-      "caveat": "Polígonos de cobertura boscosa del área de estudio. Fuente: equipo MIVIOT."
+        "caveat": "Polígonos de cobertura boscosa del área de estudio. La simbología categórica usa gridcode; otros códigos se muestran en gris. Fuente: equipo MIVIOT."
     },
     {
       "id": "pa-probabilidad-ocupacion-miviot",

@@ -1230,6 +1230,19 @@
             attributeNote.textContent = "Categorías por " + attribute + ".";
             layerEl.appendChild(attributeNote);
           }
+          if (style.fill_color_fallback) {
+            var fallbackRow = document.createElement("div");
+            fallbackRow.className = "geovisor-legend-item";
+            var fallbackSwatch = document.createElement("span");
+            fallbackSwatch.className = "geovisor-legend-swatch";
+            fallbackSwatch.style.backgroundColor = style.fill_color_fallback;
+            fallbackSwatch.setAttribute("aria-hidden", "true");
+            var fallbackLabel = document.createElement("span");
+            fallbackLabel.textContent = style.fill_color_fallback_label || "Otros valores";
+            fallbackRow.appendChild(fallbackSwatch);
+            fallbackRow.appendChild(fallbackLabel);
+            layerEl.appendChild(fallbackRow);
+          }
         } else {
           var row = document.createElement("div");
           row.className = "geovisor-legend-item";
@@ -1382,7 +1395,11 @@
             fillColorCategories.forEach(function (category) {
               fillColor.push(category.value, category.color);
             });
-            fillColor.push((fillColorCategories[fillColorCategories.length - 1] || {}).color || "#007F8B");
+            fillColor.push(
+              (lyr.style && lyr.style.fill_color_fallback) ||
+              (fillColorCategories[fillColorCategories.length - 1] || {}).color ||
+              "#007F8B"
+            );
           }
           var fillOpacity = (lyr.style && lyr.style.fill_opacity) !== undefined ? lyr.style.fill_opacity : 0.22;
           var strokeColor = (lyr.style && lyr.style.stroke_color) || "#14283F";
