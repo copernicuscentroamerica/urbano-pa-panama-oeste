@@ -1272,7 +1272,8 @@
         "pa-cambio-construccion-2018-2025": "Cambio en la mancha de construcción",
         "pa-hidrografia-miviot": "Hidrografía",
         "pa-perdida-vegetacion-2018-2025": "Cambio en la mancha de vegetación",
-        "pa-red-vial-miviot": "Red víal"
+        "pa-red-vial-miviot": "Red víal",
+        "pa-probabilidad-ocupacion-miviot": "Probabilidad de ocupación"
       };
       var projectLayers = Array.isArray(cfg.layers) ? cfg.layers : [];
       var projectLayersById = {};
