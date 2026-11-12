@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "project_id": "pa-panama-oeste",
   "theme_version": "2.0.0-copernicus-2026",
-  "updated_at": "2026-11-10",
+  "updated_at": "2026-11-12",
   "notes": "Identidad local de Panamá Oeste (Arraiján y La Chorrera). Combina la institución principal declarada en ficha (MIVIOT, en formato textual legible mientras se incorpora su archivo vectorial) y los logos documentados en la presentación técnica del Grupo 1.",
   "project_logo": null,
   "institutions": [

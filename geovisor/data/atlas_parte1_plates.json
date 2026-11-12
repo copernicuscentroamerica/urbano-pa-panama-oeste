@@ -1,0 +1,182 @@
+[
+  {
+    "key": "proj-p1",
+    "number": "LÁMINA P1",
+    "shortTitle": "P1 · Probabilidad Ocupación",
+    "title": "Zonificación Preventiva de Probabilidad de Ocupación del Suelo (Baja, Media y Alta)",
+    "sensor": "MIVIOT + Procesamiento multitemporal Copernicus Sentinel-2 en GEE",
+    "formula": "Probabilidad = f( Accesibilidad_Vial, Prox_Urbanizaciones, Restriccion_Hidrica, Cambio_18_25 )",
+    "reading": "Localiza 761 polígonos de Probabilidad Alta y 1,017 de Probabilidad Media en los bordes periurbanos de Burunga, Vista Alegre, Arraiján Cabecera y el norte de La Chorrera.",
+    "imageRel": "assets/img/atlas_proyecto/lamina_p1.png",
+    "coords": [
+      [
+        -80.004312,
+        9.205834
+      ],
+      [
+        -79.53549,
+        9.205834
+      ],
+      [
+        -79.53549,
+        8.761691
+      ],
+      [
+        -80.004312,
+        8.761691
+      ]
+    ],
+    "swatches": [
+      {
+        "color": "#DC2626",
+        "label": "Probabilidad Alta (761 pol.)",
+        "desc": "32.3% · Prioridad de gestión preventiva MIVIOT"
+      },
+      {
+        "color": "#F97316",
+        "label": "Probabilidad Media (1,017 pol.)",
+        "desc": "43.2% · Frentes periurbanos bajo monitoreo"
+      },
+      {
+        "color": "#FEF08A",
+        "label": "Probabilidad Baja (575 pol.)",
+        "desc": "24.4% · Menor presión inmediata"
+      }
+    ]
+  },
+  {
+    "key": "proj-p2",
+    "number": "LÁMINA P2",
+    "shortTitle": "P2 · Cambios 2018–2025",
+    "title": "Detección Satelital de Nueva Construcción y Pérdida Vegetal (2018–2025)",
+    "sensor": "Serie multitemporal Copernicus Sentinel-2 (2018–2025) en Google Earth Engine",
+    "formula": "Cambio_Construccion: Delta_NDBI > umbral ; Perdida_Vegetal: Delta_NDVI < -umbral",
+    "reading": "Evidencia la magnitud de la transformación territorial al oeste del Canal de Panamá y permite distinguir aperturas recientes de tierra antes de su consolidación edificada.",
+    "imageRel": "assets/img/atlas_proyecto/lamina_p2.png",
+    "coords": [
+      [
+        -80.004312,
+        9.205834
+      ],
+      [
+        -79.53549,
+        9.205834
+      ],
+      [
+        -79.53549,
+        8.761691
+      ],
+      [
+        -80.004312,
+        8.761691
+      ]
+    ],
+    "swatches": [
+      {
+        "color": "#EF4444",
+        "label": "Nueva Construcción 2018–2025",
+        "desc": "13,692 polígonos detectados por satélite"
+      },
+      {
+        "color": "#D97706",
+        "label": "Pérdida de Vegetación 2018–2025",
+        "desc": "17,157 polígonos con caída de vigor NDVI"
+      }
+    ]
+  },
+  {
+    "key": "proj-p3",
+    "number": "LÁMINA P3",
+    "shortTitle": "P3 · Formal vs. Presión",
+    "title": "Contraste entre Urbanizaciones Formales Registradas (414) y Focos de Alta Probabilidad",
+    "sensor": "Base institucional de proyectos urbanizados MIVIOT + Red vial + Modelo de probabilidad",
+    "formula": "Alerta_Temprana = Probabilidad_Alta_Clase3 - Poligonos_Urbanizaciones_Formales_414",
+    "reading": "Muestra cómo los desarrollos residenciales formales actúan como atractores de infraestructura en cuyos bordes inmediatos se concentran los focos de probabilidad alta de ocupación no planificada.",
+    "imageRel": "assets/img/atlas_proyecto/lamina_p3.png",
+    "coords": [
+      [
+        -80.004312,
+        9.205834
+      ],
+      [
+        -79.53549,
+        9.205834
+      ],
+      [
+        -79.53549,
+        8.761691
+      ],
+      [
+        -80.004312,
+        8.761691
+      ]
+    ],
+    "swatches": [
+      {
+        "color": "#7C3AED",
+        "label": "Urbanizaciones Formales (414)",
+        "desc": "Desarrollos registrados ante el MIVIOT"
+      },
+      {
+        "color": "#DC2626",
+        "label": "Focos de Probabilidad Alta",
+        "desc": "761 polígonos de presión en bordes viales/urbanos"
+      },
+      {
+        "color": "#94A3B8",
+        "label": "Red Vial Estructurante",
+        "desc": "Autopista, Panamericana y colectoras"
+      }
+    ]
+  },
+  {
+    "key": "proj-p4",
+    "number": "LÁMINA P4",
+    "shortTitle": "P4 · Uso de Suelo e Hídrica",
+    "title": "Cobertura Base de Uso del Suelo y Red Hidrográfica de Resguardo Ambiental",
+    "sensor": "Ráster COBERTURA_USOSUELO (MIVIOT / MiAmbiente) + Red hidrográfica",
+    "formula": "Restriccion_Ambiental = Cobertura_Boscosa union Buffers_Hidrografia",
+    "reading": "Identifica las cuencas hidrográficas y remanentes boscosos que deben preservarse frente a los corredores de expansión detectados hacia el norte de Arraiján y La Chorrera.",
+    "imageRel": "geovisor/data/cobertura_usosuelo_preview.png",
+    "coords": [
+      [
+        -79.991617,
+        9.19354
+      ],
+      [
+        -79.547527,
+        9.19354
+      ],
+      [
+        -79.547527,
+        8.773397
+      ],
+      [
+        -79.991617,
+        8.773397
+      ]
+    ],
+    "swatches": [
+      {
+        "color": "#15803D",
+        "label": "Cobertura Boscosa y Vegetal",
+        "desc": "Áreas de amortiguamiento y protección de cuenca"
+      },
+      {
+        "color": "#EAB308",
+        "label": "Matriz Agropecuaria / Transición",
+        "desc": "Suelos periurbanos susceptibles a conversión"
+      },
+      {
+        "color": "#DC2626",
+        "label": "Tejido Urbano Consolidado",
+        "desc": "Cabeceras y corredores residenciales"
+      },
+      {
+        "color": "#38BDF8",
+        "label": "Red Hidrográfica Principal",
+        "desc": "Ríos y quebradas con servidumbre hídrica"
+      }
+    ]
+  }
+]

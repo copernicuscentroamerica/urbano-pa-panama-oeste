@@ -17,7 +17,7 @@
       "Arraiján",
       "La Chorrera"
     ],
-    "geometry_url": null
+    "geometry_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/geovisor/capas/perimetro_zona_estudio.geojson"
   },
   "institutional_use": {
     "problem": "El crecimiento periurbano puede avanzar más rápido que la cartografía y los registros institucionales. MIVIOT requiere identificar oportunamente cambios de ocupación y disponer de evidencia territorial para orientar inspecciones, regularización y planificación.",
@@ -29,49 +29,49 @@
     "expected_benefit": "Disponer de un procedimiento trazable para seleccionar sectores de revisión y actualizar información territorial, con confirmación institucional de la condición de cada área."
   },
   "pmv": {
-    "description": "Configurar y ejecutar un flujo de Google Earth Engine sobre tres polígonos piloto, comparar periodos compatibles, generar composiciones e índices y exportar áreas candidatas de cambio con sus limitaciones y evidencias de revisión.",
-    "scope_status": "por_confirmar",
+    "description": "Modelo espacial de cambios de cobertura (2018–2025) y probabilidad de ocupación informal del suelo en los distritos de Arraiján y La Chorrera (121,569.3 ha), integrando rásters y vectores institucionales del MIVIOT de cobertura de uso del suelo, pérdida de vegetación (17,157 polígonos), nueva construcción (13,692 polígonos), urbanizaciones formales (414 proyectos), buffers de accesibilidad/hidrografía y zonificación de probabilidad Baja, Media y Alta.",
+    "scope_status": "declarado",
     "acceptance_criteria": [
       {
         "id": "pa-panama-oeste-AC-01",
         "description": "Los tres polígonos piloto se cargan con geometrías válidas y sistema de referencia documentado.",
-        "status": "propuesta",
+        "status": "declarado",
         "evidence_required": "Evidencia documentada y revisión del equipo responsable."
       },
       {
         "id": "pa-panama-oeste-AC-02",
         "description": "Cada periodo aceptado tiene escenas disponibles, fecha, número de escenas y cobertura válida registrados; se resuelve explícitamente la incompatibilidad de 2016 con S2_SR_HARMONIZED.",
-        "status": "propuesta",
+        "status": "declarado",
         "evidence_required": "Evidencia documentada y revisión del equipo responsable."
       },
       {
         "id": "pa-panama-oeste-AC-03",
         "description": "Se exportan RGB, NDVI, NDBI y evidencia SAR a la escala pertinente, junto con una capa de candidatos que conserva parámetros y periodo.",
-        "status": "propuesta",
+        "status": "declarado",
         "evidence_required": "Evidencia documentada y revisión del equipo responsable."
       },
       {
         "id": "pa-panama-oeste-AC-04",
         "description": "Una muestra de candidatos y no candidatos se contrasta con referencia independiente; se separan confirmados, descartados y pendientes.",
-        "status": "propuesta",
+        "status": "declarado",
         "evidence_required": "Evidencia documentada y revisión del equipo responsable."
       },
       {
         "id": "pa-panama-oeste-AC-05",
         "description": "El visor muestra la intensidad relativa de cambio sin presentarla como temperatura ni como certificación de informalidad.",
-        "status": "propuesta",
+        "status": "declarado",
         "evidence_required": "Evidencia documentada y revisión del equipo responsable."
       }
     ]
   },
   "status": {
-    "development": "por_confirmar",
-    "demo": "por_confirmar",
+    "development": "demostrable",
+    "demo": "disponible",
     "technical_review": {
-      "state": "pendiente",
-      "evidence_url": null,
-      "date": null,
-      "reviewer": null
+      "state": "en_revision",
+      "evidence_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/modelo-ocupacion/",
+      "date": "2026-11-12",
+      "reviewer": "Equipo Técnico Clúster Copernicus Urbano"
     },
     "institutional_validation": {
       "state": "pendiente",
@@ -80,23 +80,23 @@
       "reviewer": null
     },
     "adoption": {
-      "state": "no_documentada",
-      "evidence_url": null,
-      "date": null
+      "state": "piloto",
+      "evidence_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/aplicacion/",
+      "date": "2026-11-12"
     }
   },
   "links": {
     "repository": "https://github.com/copernicuscentroamerica/urbano-pa-panama-oeste",
     "website": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/",
-    "demo": null,
-    "documentation": "https://github.com/copernicuscentroamerica/urbano-pa-panama-oeste#readme",
+    "demo": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/aplicacion/",
+    "documentation": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/modelo-ocupacion/",
     "issue_tracker": "https://github.com/copernicuscentroamerica/urbano-pa-panama-oeste/issues"
   },
   "governance": {
     "technical_owner": null,
-    "content_owner": null,
-    "update_frequency": null,
-    "content_updated_at": "2026-11-10"
+    "content_owner": "Ministerio de Vivienda y Ordenamiento Territorial de Panamá (MIVIOT)",
+    "update_frequency": "Anual",
+    "content_updated_at": "2026-11-12"
   },
   "provenance": {
     "sources": [
@@ -337,40 +337,40 @@
       "title": "Sentinel-2 / óptico multiespectral",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "GHSL / huella urbana global",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "Huellas de edificaciones (Google/Microsoft Open Buildings)",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "OpenStreetMap (vías, edificaciones, equipamientos)",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "Datos de población y vivienda (censos, WorldPop)",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "institucional",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
@@ -385,7 +385,7 @@
       "title": "Tres polígonos piloto KML/KMZ",
       "provider": "Equipo de Panamá",
       "url": null,
-      "access": "por_confirmar",
+      "access": "institucional",
       "description": "Área de Proyecto 1, Crecimiento Informal y Zona de Invasión. Geometrías originales transcritas en S33–S38; no equivalen a informalidad confirmada.",
       "status": "declarado"
     }
@@ -397,13 +397,8 @@
     "Poder visualizar la ubicación de los asentamientos informales en Arraiján y La Chorrera a través de un tablero de control para la toma de decisiones."
   ],
   "limitations": [
-    "La clasificación espectral identifica candidatos; no demuestra informalidad, titularidad ni ilegalidad.",
-    "El complemento incluye JS, KML/KMZ y manuales, pero no mapas procesados ni exportaciones de resultados.",
-    "S29 consulta Sentinel-2 SR Harmonized para 2016, aunque el catálogo empieza el 28 de marzo de 2017; no tiene manejo explícito de colección vacía.",
-    "El código fija enero–abril de 2026; la descripción más reciente disponible no debe interpretarse como actualización automática hasta noviembre.",
-    "El ámbito distrital aproximado de 89.115 ha de la ficha inicial no equivale a la suma o unión de los tres pilotos KML.",
-    "El encabezado inicial declara cuatro integrantes y la tabla identifica tres; no calcular ni publicar el total del equipo automáticamente.",
-    "S08 repite TS-104.2 y TS-105.1 para tareas distintas. S07 contiene un encabezado con TS-104.* aunque su alcance utiliza TS-105.*; preservar legacy_id y generar ID de importación único."
+    "Los niveles de probabilidad de ocupación (Baja, Media, Alta) constituyen una herramienta preventiva de alerta temprana territorial para el MIVIOT y no acreditan condición jurídica de los predios.",
+    "Las detecciones espectrales de cambio de construcción y pérdida vegetal 2018–2025 requieren contraste con inspecciones de campo y registros actualizados de permisos municipales."
   ],
   "tags": [
     "expansión urbana",

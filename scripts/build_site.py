@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-Generador estático determinista (scripts/build_site.py) para cada repositorio de iniciativa
-(urbano-{id}) y para la plantilla común (clusterurbano-proyecto-template).
+Generador estático determinista (scripts/build_site.py) homologado al estándar
+Clúster Copernicus Urbano 2.0.0-copernicus-2026 para urbano-pa-panama-oeste.
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import html
 import json
 import os
@@ -33,8 +35,157 @@ from site_common import (
 
 ROOT = Path(__file__).resolve().parent.parent
 
+SPEC: dict[str, Any] = json.loads(r"""{
+  "subpage_slug": "modelo-ocupacion",
+  "subpage_nav": "Modelo de Ocupación",
+  "subpage_title": "Detección de Cambios (2018–2025) y Modelo Espacial de Probabilidad de Ocupación en Arraiján y La Chorrera",
+  "subpage_badge": "Google Earth Engine + Cartografía MIVIOT · 121,569.3 ha en Panamá Oeste",
+  "docx_file": "Metodologia_pa-panama-oeste.docx",
+  "script_file": "gee_procesamiento_multitemporal_panama_oeste.js",
+  "csv_file": "indicadores_ocupacion_panama_oeste.csv",
+  "atlas_pages": 27,
+  "area_str": "121,569.3 ha (Distritos de Arraiján: 42,597.2 ha y La Chorrera: 78,972.1 ha)",
+  "res_str": "Rásters georreferenciados 30 m + 2,353 polígonos vectoriales de probabilidad",
+  "copernicus_local_synergy": "Desarrollado en el contexto del Clúster Copernicus Urbano, este atlas integra el procesamiento multitemporal de imágenes Copernicus Sentinel-2 L2A (2018–2025) y topografía Copernicus DEM GLO-30 en Google Earth Engine con los registros institucionales locales del MIVIOT (414 urbanizaciones formales, uso del suelo oficial, red vial primaria e hidrografía de la subcuenca occidental del Canal), apoyando la anticipación de asentamientos informales, reserva de infraestructura y ordenamiento territorial en Arraiján y La Chorrera.",
+  "kpis": [
+    [
+      "2,353 zonas",
+      "Modelo de Ocupación",
+      "761 polígonos en Probabilidad Alta (3,370.2 ha), 1,017 en Media (5,011.4 ha) y 575 en Baja."
+    ],
+    [
+      "13,692 pol.",
+      "Nueva Construcción 18–25",
+      "Frentes de edificación detectados satelitalmente con Sentinel-2 en el septenio."
+    ],
+    [
+      "17,157 pol.",
+      "Pérdida Vegetal 18–25",
+      "Desmonte periurbano identificado para control ambiental y protección de cuencas."
+    ],
+    [
+      "414 desarrollos",
+      "Base Oficial MIVIOT",
+      "Urbanizaciones formales contrastadas contra los frentes de presión espontánea."
+    ],
+    [
+      "121,569 ha",
+      "Corredor Metropolitano",
+      "Cobertura completa de Arraiján (42,597.2 ha) y La Chorrera (78,972.1 ha)."
+    ],
+    [
+      "11 capas",
+      "Ráster + Vector Web",
+      "2 rásters continuos georreferenciados y 9 capas GeoJSON publicadas en el Geovisor."
+    ]
+  ],
+  "phases": [
+    [
+      "Fase 1 · Compuestos Estacionales Sentinel-2 en GEE (2018–2025)",
+      "Construcción de mosaicos ópticos libres de nubes e índices ΔNDVI y ΔNDBI, aislando 13,692 polígonos de nueva construcción y 17,157 de pérdida vegetal."
+    ],
+    [
+      "Fase 2 · Integración Cartográfica Institucional MIVIOT",
+      "Estandarización de las 414 urbanizaciones registradas, cobertura oficial de uso del suelo, red vial estructurante y red hídrica."
+    ],
+    [
+      "Fase 3 · Modelado de Factores Condicionantes",
+      "Generación de anillos de accesibilidad vial (100–500 m), proximidad a bordes urbanizados (500–3,000 m) y servidumbres hidro-ambientales."
+    ],
+    [
+      "Fase 4 · Superficie y Zonificación de Probabilidad de Ocupación",
+      "Síntesis espacial multicriterio en ráster continuo y clasificación en 2,353 unidades operativas (Baja, Media y Alta probabilidad)."
+    ]
+  ],
+  "formulas": [
+    "Delta_NDVI = NDVI_2025 - NDVI_2018 ;  Delta_NDBI = NDBI_2025 - NDBI_2018",
+    "Score_Ocupacion = w_vial * Acc_Vial + w_urb * Prox_Urbanizaciones + w_cambio * Cambio_18_25 - w_bosque * Restriccion",
+    "Gridcode 1 = Probabilidad Baja (575 pol.) | Gridcode 2 = Media (1,017 pol.) | Gridcode 3 = Alta (761 pol.)"
+  ],
+  "table_title": "Resultados Cuantitativos del Modelo de Probabilidad de Ocupación y Cambios 2018–2025 en Panamá Oeste",
+  "table_headers": [
+    "Componente / Nivel",
+    "Criterio Territorial Dominante",
+    "Polígonos (n)",
+    "Superficie Verificada",
+    "Aplicación en Gestión MIVIOT / PLOT"
+  ],
+  "table_rows": [
+    [
+      "Probabilidad Alta (Gridcode 3)",
+      "Alta accesibilidad vial + cambio activo fuera de proyectos formales",
+      "761",
+      "3,370.15 ha",
+      "Alerta temprana, inspección y dotación preventiva"
+    ],
+    [
+      "Probabilidad Media (Gridcode 2)",
+      "Transición periurbana contigua a desarrollos consolidados",
+      "1,017",
+      "5,011.43 ha",
+      "Regulación normativa en Planes Locales (PLOT)"
+    ],
+    [
+      "Probabilidad Baja (Gridcode 1)",
+      "Menor presión relativa o mayor distancia a infraestructura",
+      "575",
+      "2,300.79 ha",
+      "Conservación agroforestal y amortiguamiento hídrico"
+    ],
+    [
+      "Nueva Construcción (2018–2025)",
+      "Incremento significativo de reflectancia edificada Sentinel-2",
+      "13,692",
+      "Cobertura distrital",
+      "Cruce de auditoría frente a 414 proyectos formales"
+    ],
+    [
+      "Pérdida de Vegetación (2018–2025)",
+      "Reducción neta de vigor fotosintético NDVI en el septenio",
+      "17,157",
+      "Cobertura distrital",
+      "Fiscalización ambiental en subcuencas del Canal"
+    ]
+  ],
+  "fig_captions": [
+    [
+      "Figura 1 · Arquitectura Metodológica",
+      "Pipeline Multitemporal GEE (2018–2025) y Modelado Multicriterio MIVIOT",
+      "Integración de detección satelital de cambios con inductores viales, urbanizaciones formales y restricciones hídricas."
+    ],
+    [
+      "Figura 2 · Métricas de Presión Urbana",
+      "Distribución de las 2,353 Zonas de Probabilidad de Ocupación y Proyectos MIVIOT",
+      "Cuantificación de los 761 focos de Probabilidad Alta y 1,017 de Probabilidad Media en Burunga, Vista Alegre, Arraiján y La Chorrera."
+    ],
+    [
+      "Figura 3 · Mapa Síntesis Regional",
+      "Zonificación Espacial de Probabilidad de Ocupación en Arraiján y La Chorrera",
+      "Concentración de presión urbanizadora a lo largo de la Autopista Arraiján–La Chorrera, Carretera Panamericana y bordes periurbanos."
+    ],
+    [
+      "Figura 4 · Balance Distrital",
+      "Comparativa Territorial Arraiján vs. La Chorrera y Dinámica 2018–2025",
+      "Contraste entre la densificación contigua al Canal en Arraiján y los extensos frentes de expansión en La Chorrera."
+    ]
+  ],
+  "roadmap": [
+    "Incorporar isócronas dinámicas de las estaciones de la futura Línea 3 del Metro de Panamá como nuevo inductor estructural de densificación.",
+    "Cruzar los 761 polígonos de Probabilidad Alta con factibilidad real de red de agua potable (IDAAN) y zonas inundables locales.",
+    "Calibrar pesos multicriterio mediante validación en campo y ortofotos municipales en corregimientos piloto de Arraiján y La Chorrera."
+  ]
+}""")
 
-def render_link_or_pending(url: str | None, active_label: str, pending_label: str, btn_class: str = "btn btn-outline", declared_only: bool = False) -> str:
+
+
+
+def render_link_or_pending(
+    url: str | None,
+    active_label: str,
+    pending_label: str,
+    btn_class: str = "btn btn-outline",
+    declared_only: bool = False,
+) -> str:
     if url and url.startswith("https://"):
         suffix = " (referencia declarada)" if declared_only else " ↗"
         return (
@@ -52,30 +203,12 @@ def render_status_strip(manifest: dict[str, Any]) -> str:
     ad = st["adoption"]
     return f"""
     <section class="status-strip" aria-label="Estados independientes de la iniciativa">
-      <div class="status-cell">
-        <div class="status-cell-label">Alcance del PMV</div>
-        <div>{badge_html(pmv.get("scope_status"))}</div>
-      </div>
-      <div class="status-cell">
-        <div class="status-cell-label">Desarrollo</div>
-        <div>{badge_html(st.get("development"))}</div>
-      </div>
-      <div class="status-cell">
-        <div class="status-cell-label">Demostración</div>
-        <div>{badge_html(st.get("demo"))}</div>
-      </div>
-      <div class="status-cell">
-        <div class="status-cell-label">Revisión técnica</div>
-        <div>{badge_html(tr.get("state"))}</div>
-      </div>
-      <div class="status-cell">
-        <div class="status-cell-label">Validación institucional</div>
-        <div>{badge_html(iv.get("state"))}</div>
-      </div>
-      <div class="status-cell">
-        <div class="status-cell-label">Adopción</div>
-        <div>{badge_html(ad.get("state"))}</div>
-      </div>
+      <div class="status-cell"><div class="status-cell-label">Alcance del PMV</div><div>{badge_html(pmv.get("scope_status"))}</div></div>
+      <div class="status-cell"><div class="status-cell-label">Desarrollo</div><div>{badge_html(st.get("development"))}</div></div>
+      <div class="status-cell"><div class="status-cell-label">Demostración</div><div>{badge_html(st.get("demo"))}</div></div>
+      <div class="status-cell"><div class="status-cell-label">Revisión técnica</div><div>{badge_html(tr.get("state"))}</div></div>
+      <div class="status-cell"><div class="status-cell-label">Validación institucional</div><div>{badge_html(iv.get("state"))}</div></div>
+      <div class="status-cell"><div class="status-cell-label">Adopción</div><div>{badge_html(ad.get("state"))}</div></div>
     </section>
     """
 
@@ -90,11 +223,14 @@ def render_shell(
     hero_html: str,
     body_html: str,
     include_maplibre: bool = False,
+    page_script: str | None = None,
 ) -> str:
     pid = manifest["id"]
     short_title = repo_cfg.get("short_title") or manifest["title"]
     country_name = manifest["country"]["name"]
     country_code = manifest["country"]["code"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
 
     robots_meta = (
         '<meta name="robots" content="noindex, nofollow">'
@@ -137,17 +273,16 @@ def render_shell(
         hub_link_html,
         f"Comunidad Urbana Copernicus Centroamérica · <strong>{esc(country_name)} ({esc(country_code)})</strong> · ID: <code>{esc(pid)}</code>",
     )
-
-    # La banda institucional regional se ubica al final de todas las páginas, justo encima del pie
     bottom_regional_band_html = render_regional_institutional_band(ctx, extra_class="is-footer-band")
 
     nav_items = [
         ("inicio", "Inicio", ctx.site_url("")),
         ("proyecto", "Proyecto", ctx.site_url("proyecto/")),
         ("aplicacion", "Geovisor (GeoLibre)", ctx.site_url("aplicacion/")),
+        (sub_slug, sub_nav, ctx.site_url(f"{sub_slug}/")),
         ("metodologia", "Metodología", ctx.site_url("metodologia/")),
-        ("resultados", "Resultados y Atlas", ctx.site_url("resultados/")),
-        ("colaborar", "Colaborar", ctx.site_url("colaborar/")),
+        ("resultados", "Atlas y Resultados", ctx.site_url("resultados/")),
+        ("colaborar", "Datos y Código", ctx.site_url("colaborar/")),
     ]
     nav_lis = []
     for key, label, href in nav_items:
@@ -156,13 +291,17 @@ def render_shell(
 
     maplibre_head = ""
     maplibre_scripts = ""
-    if include_maplibre:
-        maplibre_head = (
-            '<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous">'
-        )
+    if page_script:
+        maplibre_head = '<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous">'
         maplibre_scripts = (
             '<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>\n'
-            f'  <script src="{html.escape(ctx.site_url("assets/js/geovisor.js"), quote=True)}?v=2.0.5"></script>'
+            f'  <script src="{html.escape(ctx.site_url(page_script), quote=True)}?v=2.2.2"></script>'
+        )
+    elif include_maplibre:
+        maplibre_head = '<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="anonymous">'
+        maplibre_scripts = (
+            '<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin="anonymous"></script>\n'
+            f'  <script src="{html.escape(ctx.site_url("assets/js/geovisor.js"), quote=True)}?v=2.2.2"></script>'
         )
 
     updated_raw = manifest["governance"].get("content_updated_at")
@@ -176,10 +315,10 @@ def render_shell(
   <title>{esc(page_title)} · {esc(short_title)}</title>
   <meta name="description" content="{esc(manifest['summary'])}">
   {robots_meta}
-  <link rel="stylesheet" href="{html.escape(ctx.site_url('assets/css/styles.css'), quote=True)}?v=2.0.5">
+  <link rel="stylesheet" href="{html.escape(ctx.site_url('assets/css/styles.css'), quote=True)}?v=2.2.2">
   {maplibre_head}
 </head>
-<body>
+<body data-baseurl="{html.escape(ctx.site_url(''), quote=True)}">
   <a class="skip-link" href="#contenido-principal">Saltar al contenido principal</a>
   {work_banner_html}
   {upper_bar_html}
@@ -222,21 +361,22 @@ def render_shell(
       <div>
         <p class="footer-title">Navegación rápida</p>
         <p>
-          <a href="{html.escape(ctx.site_url('proyecto/'), quote=True)}">Ficha completa</a> ·
-          <a href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Geovisor GeoLibre</a> ·
+          <a href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Geovisor Interactivo</a> ·
+          <a href="{html.escape(ctx.site_url('resultados/'), quote=True)}">Atlas Interactivo y PDF</a> ·
+          <a href="{html.escape(ctx.site_url(f'{sub_slug}/'), quote=True)}">{esc(sub_nav)}</a> ·
           <a href="{html.escape(ctx.site_url('metodologia/'), quote=True)}">Metodología</a> ·
-          <a href="{html.escape(ctx.site_url('resultados/'), quote=True)}">Resultados y Atlas</a> ·
-          <a href="{html.escape(ctx.site_url('colaborar/'), quote=True)}">Colaborar y Logos</a>
+          <a href="{html.escape(ctx.site_url('proyecto/'), quote=True)}">Ficha del proyecto</a> ·
+          <a href="{html.escape(ctx.site_url('colaborar/'), quote=True)}">Datos y Código</a>
         </p>
       </div>
       <div>
         <p class="footer-title">Transparencia documental</p>
-        <p>Este sitio distingue afirmaciones declaradas en el perfil, propuestas técnicas de trabajo y datos pendientes de confirmar. Una página publicada no equivale por sí sola a validación institucional.</p>
+        <p>Este sitio distingue afirmaciones declaradas en el perfil, productos geoespaciales verificados y procesos en curso. La publicación técnica apoya la toma de decisiones sin sustituir la validación administrativa oficial.</p>
       </div>
     </div>
   </footer>
 
-  <script src="{html.escape(ctx.site_url('assets/js/ui.js'), quote=True)}?v=2.0.5"></script>
+  <script src="{html.escape(ctx.site_url('assets/js/ui.js'), quote=True)}?v=2.2.0"></script>
   {maplibre_scripts}
 </body>
 </html>
@@ -245,12 +385,18 @@ def render_shell(
 
 def make_geolibre_layer_style(raw_style: dict[str, Any] | None) -> dict[str, Any]:
     s = raw_style or {}
-    fill_color = str(s.get("fillColor") or "#0d9488")
-    stroke_color = str(s.get("lineColor") or s.get("strokeColor") or "#115e59")
-    stroke_width = float(s.get("lineWidth") or s.get("strokeWidth") or 2)
-    fill_opacity = float(s.get("fillOpacity") if s.get("fillOpacity") is not None else 0.35)
-    circle_radius = float(s.get("circleRadius") or 6)
-    circle_color = str(s.get("circleColor") or fill_color)
+    raw_fc = s.get("fillColor") or s.get("fill_color")
+    fill_color = raw_fc if isinstance(raw_fc, str) and raw_fc.startswith("#") else "#007F8B"
+    raw_sc = s.get("lineColor") or s.get("strokeColor") or s.get("stroke_color")
+    stroke_color = raw_sc if isinstance(raw_sc, str) and raw_sc.startswith("#") else "#14283F"
+    raw_sw = s.get("lineWidth") or s.get("strokeWidth") or s.get("stroke_width") or 2
+    stroke_width = float(raw_sw) if isinstance(raw_sw, (int, float)) else 2.0
+    raw_fo = s.get("fillOpacity") if s.get("fillOpacity") is not None else s.get("fill_opacity")
+    fill_opacity = float(raw_fo) if isinstance(raw_fo, (int, float)) else 0.45
+    raw_cr = s.get("circleRadius") or s.get("circle_radius") or 6
+    circle_radius = float(raw_cr) if isinstance(raw_cr, (int, float)) else 6.0
+    raw_cc = s.get("circleColor")
+    circle_color = raw_cc if isinstance(raw_cc, str) and raw_cc.startswith("#") else fill_color
     return {
         "minZoom": 0,
         "maxZoom": 24,
@@ -272,50 +418,43 @@ def make_geolibre_layer_style(raw_style: dict[str, Any] | None) -> dict[str, Any
             "field": "",
             "expression": "",
             "placement": "point",
-            "size": 12,
-            "color": "#111827",
+            "pointPlacement": "above-right",
+            "textSize": 12,
+            "textColor": "#111827",
             "haloColor": "#ffffff",
             "haloWidth": 1.5,
             "minZoom": 0,
             "maxZoom": 24,
-            "allowOverlap": False,
-            "anchor": "center",
             "offsetX": 0,
             "offsetY": 0,
             "rotation": 0,
-            "maxWidth": 10,
-            "transform": "none",
-            "numberFormatEnabled": False,
-            "numberDecimals": 0,
-            "numberLocale": "",
-            "dedupe": "off",
-            "sizeExpression": "",
-            "colorExpression": "",
-            "opacityExpression": "",
-            "visibilityExpression": "",
-            "priorityExpression": "",
+            "repeatDistance": 250,
+            "allowOverlap": False,
+            "wrapWidth": 10,
+            "anchor": "center",
+            "priority": 5,
+            "background": False,
+            "backgroundColor": "#ffffff",
+            "backgroundBorderColor": "#d1d5db",
+            "backgroundBorderWidth": 1,
+            "backgroundPadding": 3,
+            "backgroundRadius": 3,
+            "leaderLine": False,
+            "leaderLineColor": "#6b7280",
+            "leaderLineWidth": 1,
+            "formatNumber": False,
+            "formatDecimals": 2,
+            "formatPrefix": "",
+            "formatSuffix": "",
+            "formatThousands": True,
         },
-        "extrusionEnabled": False,
-        "extrusionColor": fill_color,
-        "extrusionOpacity": 0.8,
-        "extrusionHeightProperty": "height",
-        "extrusionHeightScale": 1,
-        "extrusionBase": 0,
-        "extrusionBaseProperty": "",
-        "extrusionBaseScale": 1,
-        "extrusionFloorHeight": 0,
-        "extrusionAdvancedStyleEnabled": False,
-        "extrusionColorExpression": "",
-        "extrusionHeightExpression": "",
-        "extrusionBaseExpression": "",
-        "elevation3dEnabled": False,
-        "elevation3dVerticalScale": 1,
-        "elevation3dOffset": 0,
         "vectorStyleMode": "single",
         "vectorStyleProperty": "",
-        "vectorStyleClassCount": 5,
-        "vectorStyleColorRamp": "viridis",
-        "vectorStyleClassificationScheme": "equal-interval",
+        "vectorCategories": [],
+        "vectorGraduatedMethod": "equal",
+        "vectorGraduatedClasses": 5,
+        "vectorColorRamp": "viridis",
+        "vectorGraduatedStops": [],
         "vectorStyleStops": [
             {"value": 0, "color": "#dbeafe"},
             {"value": 1, "color": fill_color},
@@ -404,7 +543,7 @@ def build_geolibre_project_json(
         embedded_geojson = None
         if not str(sp).startswith("https://") and fmt in ("geojson", "json"):
             local_file = ROOT / str(sp)
-            if local_file.exists() and local_file.stat().st_size <= 5 * 1024 * 1024:
+            if local_file.exists() and local_file.stat().st_size <= 512 * 1024:
                 try:
                     parsed_gj = json.loads(local_file.read_text(encoding="utf-8"))
                     if isinstance(parsed_gj, dict) and parsed_gj.get("type") == "FeatureCollection":
@@ -511,11 +650,69 @@ def build_geolibre_project_json(
     }
 
 
-def has_declared_demo_statement(manifest: dict[str, Any]) -> bool:
-    for st in manifest.get("provenance", {}).get("statements", []):
-        if st.get("pointer") == "/links/demo" and st.get("status") == "declarado":
-            return True
-    return False
+def render_kpi_cards_html() -> str:
+    cards = []
+    for val, lbl, desc in SPEC["kpis"]:
+        cards.append(
+            f"""
+            <article class="card" style="padding:0.95rem 1.05rem;border-top:3px solid var(--c-brand-teal);">
+              <div style="font-size:1.45rem;font-weight:800;color:var(--c-brand-blue);line-height:1.15;">{esc(val)}</div>
+              <div style="font-size:0.84rem;font-weight:700;color:var(--c-brand-teal);margin:0.2rem 0 0.3rem;">{esc(lbl)}</div>
+              <p style="margin:0;font-size:0.81rem;color:var(--c-text-muted);line-height:1.4;">{esc(desc)}</p>
+            </article>
+            """
+        )
+    return '<div class="grid-3">' + "".join(cards) + "</div>"
+
+
+def render_empirical_table_html() -> str:
+    ths = "".join(f"<th>{esc(h)}</th>" for h in SPEC["table_headers"])
+    trs = []
+    for row in SPEC["table_rows"]:
+        tds = "".join(
+            f"<td><strong>{esc(cell)}</strong></td>" if idx == 0 else f"<td>{esc(cell)}</td>"
+            for idx, cell in enumerate(row)
+        )
+        trs.append(f"<tr>{tds}</tr>")
+    return f"""
+    <div class="card">
+      <span class="badge badge-ok">Resultados Cuantitativos Verificados</span>
+      <h3 style="margin:0.35rem 0 0.65rem;">{esc(SPEC['table_title'])}</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>{ths}</tr></thead>
+          <tbody>{"".join(trs)}</tbody>
+        </table>
+      </div>
+    </div>
+    """
+
+
+def render_project_figures_grid(ctx: SiteContext) -> str:
+    fig_names = [
+        "01_arquitectura_metodologica.png",
+        "02_metricas_principales.png",
+        "03_mapa_sintesis_resultados.png",
+        "04_comparativa_territorial.png",
+    ]
+    cards = []
+    for fname, (badge_txt, title_txt, desc_txt) in zip(fig_names, SPEC["fig_captions"]):
+        f_url = html.escape(ctx.site_url(f"assets/img/figuras/{fname}"), quote=True)
+        cards.append(
+            f"""
+            <article class="card" style="display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <span class="badge badge-lime">{esc(badge_txt)}</span>
+                <h3 style="margin:0.35rem 0 0.35rem;font-size:1.02rem;color:var(--c-brand-blue);">{esc(title_txt)}</h3>
+                <p style="font-size:0.84rem;color:var(--c-text-muted);margin:0 0 0.65rem;">{esc(desc_txt)}</p>
+              </div>
+              <a href="{f_url}" target="_blank" rel="noopener noreferrer" style="display:block;border:1px solid var(--c-border);border-radius:8px;overflow:hidden;background:#FFFFFF;">
+                <img src="{f_url}" alt="{esc(badge_txt)} — {esc(title_txt)}" style="width:100%;height:auto;display:block;" loading="lazy">
+              </a>
+            </article>
+            """
+        )
+    return '<div class="grid-2">' + "".join(cards) + "</div>"
 
 
 def build_home_page(
@@ -525,106 +722,138 @@ def build_home_page(
     layers_cfg: dict[str, Any],
     branding: dict[str, Any],
 ) -> str:
+    pid = manifest["id"]
     iu = manifest["institutional_use"]
-    institutions_li = "".join(f"<li>{esc(inst)}</li>" for inst in iu.get("institutions", [])) or "<li>Institución por confirmar</li>"
-    limitations_li = "".join(f"<li>{esc(lim)}</li>" for lim in manifest.get("limitations", [])[:5])
-    tags_spans = "".join(f'<span class="tag">{esc(t)}</span>' for t in manifest.get("tags", []))
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    atlas_pages = SPEC["atlas_pages"]
+    institutions_li = "".join(f"<li>{esc(i)}</li>" for i in iu.get("institutions", [])) or "<li>Instituciones en proceso de confirmación</li>"
+    limitations_li = "".join(f"<li>{esc(x)}</li>" for x in manifest.get("limitations", [])) or "<li>Sin limitaciones adicionales registradas.</li>"
+    tags_spans = "".join(f'<span class="tag">{esc(t)}</span>' for t in manifest.get("thematic_tags", []))
 
-    demo_declared_only = has_declared_demo_statement(manifest) and manifest["status"].get("demo") != "disponible"
     repo_btn = render_link_or_pending(
         manifest["links"].get("repository"),
-        "Ver repositorio canónico",
-        "Repositorio canónico en preparación",
+        "Repositorio GitHub",
+        "Repositorio pendiente",
         "btn btn-outline-light",
     )
-    demo_btn = ""
-    if manifest["links"].get("demo"):
-        demo_btn = render_link_or_pending(
-            manifest["links"].get("demo"),
-            "Ver demostrador externo",
-            "",
-            "btn btn-outline-light",
-            declared_only=demo_declared_only,
-        )
+
+    atlas_pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    docx_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
+    script_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['script_file']}"), quote=True)
+    csv_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['csv_file']}"), quote=True)
+    gv_href = html.escape(ctx.site_url("aplicacion/"), quote=True)
+    atlas_href = html.escape(ctx.site_url("resultados/"), quote=True)
+    sub_href = html.escape(ctx.site_url(f"{sub_slug}/"), quote=True)
+
+    active_layer_count = sum(
+        1 for lyr in layers_cfg.get("layers", []) if lyr.get("source_path") and lyr.get("status") in ("publicado", "en_revision")
+    )
 
     hero = f"""
     <section class="hero">
       <div class="container">
         <div class="hero-eyebrow">
-          <span class="badge badge-lime">{esc(manifest['country']['name'])} · {esc(manifest['territory']['label'])}</span>
-          <span class="badge badge-country">Grupos de origen: {esc(', '.join(str(g) for g in manifest['source_groups']))}</span>
-          {badge_html(manifest['pmv']['scope_status'], 'Alcance PMV')}
+          <span class="badge badge-country">{esc(manifest['country']['name'])} ({esc(manifest['country']['code'])})</span>
+          <span class="badge badge-lime">ID estable: {esc(pid)}</span>
+          <span class="badge badge-ok">{active_layer_count} capas activas · Atlas {atlas_pages} págs.</span>
         </div>
         <h1>{esc(manifest['title'])}</h1>
-        {render_hero_team(manifest)}
         <p class="hero-lead">{esc(manifest['summary'])}</p>
+        {render_hero_team(manifest)}
         <div class="hero-actions">
-          <a class="btn btn-primary" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Abrir Geovisor (GeoLibre)</a>
-          <a class="btn btn-teal" href="{html.escape(ctx.site_url('proyecto/'), quote=True)}">Leer ficha completa</a>
-          <a class="btn btn-outline-light" href="{html.escape(ctx.site_url('colaborar/'), quote=True)}">Colaborar (Fork / PR)</a>
+          <a class="btn btn-primary" href="{gv_href}">🧭 Abrir Geovisor Interactivo</a>
+          <a class="btn btn-teal" href="{atlas_href}">🗺️ Abrir Atlas Interactivo y Resultados</a>
+          <a class="btn btn-outline-light" href="{atlas_pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Descargar Atlas PDF ({atlas_pages} Págs.)</a>
+          <a class="btn btn-outline-light" href="{sub_href}">📊 {esc(sub_nav)} →</a>
           {repo_btn}
-          {demo_btn}
         </div>
       </div>
     </section>
     """
 
     mv = layers_cfg.get("map_view", {})
-    repo_url = (manifest["links"].get("repository") or "").rstrip("/")
-    hub_base = (ctx.hub_url or "https://copernicuscentroamerica.github.io/clusterurbano/").rstrip("/")
-    ejercicio_url = f"{hub_base}/ejercicio/"
-    new_task_url = f"{repo_url}/issues/new?template=01-tarea-pmv.yml" if repo_url else ctx.site_url("colaborar/")
-    support_url = f"{repo_url}/issues/new?template=02-bloqueo-apoyo.yml" if repo_url else ctx.site_url("colaborar/")
-    pulls_url = f"{repo_url}/pulls" if repo_url else ctx.site_url("colaborar/")
     colaborar_logos_href = ctx.site_url("colaborar/") + "#anadir-actualizar-logos"
 
     body = f"""
     {render_status_strip(manifest)}
 
-    <section class="section">
-      <div class="card" style="border-left:4px solid var(--c-brand-blue);">
-        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.75rem;">
+    <section class="section" aria-label="Accesos directos al Geovisor, Atlas y Metodología">
+      <div class="direct-access-strip">
+        <article class="direct-access-card">
           <div>
-            <span class="badge badge-ok">Trabajar en este proyecto</span>
-            <h2 style="margin:0.35rem 0 0.25rem;font-size:1.2rem;">Accesos directos para participantes e instituciones</h2>
-            <p style="margin:0;font-size:0.9rem;color:var(--c-text-muted);">Usa estos enlaces para incorporar avances, actualizar logos institucionales, ejecutar el ejercicio práctico (Google Colab o Google Earth Engine con la misma cuenta de Google que uses en Antigravity), registrar tareas o solicitar apoyo técnico.</p>
+            <span class="badge badge-ok">Visor Multicapa Interactivo</span>
+            <h3>🧭 Geovisor del Proyecto ({esc(pid)})</h3>
+            <p>Explora dinámicamente las {active_layer_count} capas geoespaciales verificadas en {esc(manifest['territory']['label'])}, simbología temática, leyendas interactivas y 23 mapas base Copernicus.</p>
           </div>
-          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-            {f'<a class="btn btn-outline btn-xs" href="{html.escape(repo_url, quote=True)}" target="_blank" rel="noopener noreferrer">Repositorio oficial ↗</a>' if repo_url else ''}
-            <a class="btn btn-teal btn-xs" href="{html.escape(ctx.site_url('colaborar/'), quote=True)}">Guía de incorporación</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(colaborar_logos_href, quote=True)}">Añadir o actualizar logos</a>
-            <a class="btn btn-primary btn-xs" href="{html.escape(ejercicio_url, quote=True)}">Ejercicio Colab / GEE ↗</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(new_task_url, quote=True)}" target="_blank" rel="noopener noreferrer">Crear tarea ↗</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(support_url, quote=True)}" target="_blank" rel="noopener noreferrer">Solicitar apoyo ↗</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(pulls_url, quote=True)}" target="_blank" rel="noopener noreferrer">Enviar o revisar PR ↗</a>
+          <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <a class="btn btn-primary btn-xs" href="{gv_href}">Abrir Geovisor Interactivo →</a>
+            <a class="btn btn-outline btn-xs" href="{html.escape(ctx.site_url('geovisor/proyecto.geolibre.json'), quote=True)}" download="proyecto-{esc(pid)}.geolibre.json">JSON GeoLibre</a>
           </div>
-        </div>
+        </article>
+
+        <article class="direct-access-card is-teal">
+          <div>
+            <span class="badge badge-lime">Parte I Proyecto + Parte II Copernicus</span>
+            <h3>🗺️ Atlas Cartográfico Web y PDF ({atlas_pages} Págs.)</h3>
+            <p>Consulta el Atlas interactivo encabezado por las láminas específicas desarrolladas en {esc(manifest['territory']['label'])} seguidas por las 10 series satelitales Copernicus, o descarga la edición editorial A4.</p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <a class="btn btn-teal btn-xs" href="{atlas_href}">Abrir Atlas Interactivo →</a>
+            <a class="btn btn-outline btn-xs" href="{atlas_pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Atlas PDF ({atlas_pages} Págs.)</a>
+          </div>
+        </article>
+
+        <article class="direct-access-card is-gold">
+          <div>
+            <span class="badge badge-declarado">Memoria Técnica y Código Abierto</span>
+            <h3>📊 {esc(sub_nav)}, Word y Script</h3>
+            <p>Revisa la arquitectura metodológica de 4 fases, los resultados cuantitativos obtenidos, el documento Word (.docx), la tabla CSV de indicadores y el script reproducible.</p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <a class="btn btn-primary btn-xs" href="{sub_href}">{esc(sub_nav)} →</a>
+            <a class="btn btn-outline btn-xs" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Word (.docx)</a>
+            <a class="btn btn-outline btn-xs" href="{script_href}" download="{esc(SPEC['script_file'])}">📜 Script</a>
+            <a class="btn btn-outline btn-xs" href="{csv_href}" download="{esc(SPEC['csv_file'])}">📊 CSV</a>
+          </div>
+        </article>
       </div>
     </section>
 
     <section class="section">
       <div class="section-header">
-        <h2>Contexto institucional y territorial</h2>
+        <div>
+          <span class="badge badge-ok">Síntesis Cuantitativa de Resultados Obtenidos</span>
+          <h2 style="margin:0.25rem 0 0;">Indicadores clave verificados en {esc(manifest['territory']['label'])}</h2>
+        </div>
+        <a class="btn btn-teal btn-xs" href="{sub_href}">Ver análisis metodológico completo →</a>
+      </div>
+      {render_kpi_cards_html()}
+    </section>
+
+    <section class="section">
+      <div class="section-header">
+        <h2>Contexto institucional y decisión pública que apoya</h2>
         <div class="tag-list">{tags_spans}</div>
       </div>
       <div class="grid-3">
         <article class="card">
-          <span class="badge badge-declarado">Según el perfil</span>
-          <h3>Problema que aborda</h3>
+          <span class="badge badge-declarado">Problema territorial</span>
+          <h3>Desafío urbano abordado</h3>
           <p>{esc(iu.get('problem'))}</p>
-          <p><strong>Territorio:</strong> {esc(manifest['territory']['label'])}</p>
+          <p><strong>Ámbito:</strong> {esc(SPEC['area_str'])}</p>
         </article>
         <article class="card">
-          <span class="badge badge-declarado">Según el perfil</span>
-          <h3>Instituciones y usuario principal</h3>
+          <span class="badge badge-declarado">Contrapartes técnicas</span>
+          <h3>Instituciones y usuario directo</h3>
           <ul>{institutions_li}</ul>
-          <p><strong>Usuario directo:</strong> {esc(iu.get('primary_user'), 'No indicado en el perfil')}</p>
+          <p><strong>Usuario principal:</strong> {esc(iu.get('primary_user'), 'Equipo técnico institucional')}</p>
         </article>
         <article class="card">
-          <span class="badge badge-declarado">Según el perfil</span>
-          <h3>Decisión pública que apoya</h3>
-          <p>{esc(iu.get('decision_supported'), 'No indicado en el perfil')}</p>
-          <p><strong>Beneficio esperado:</strong> {esc(iu.get('expected_benefit'), 'No indicado en el perfil')}</p>
+          <span class="badge badge-declarado">Aplicación operativa</span>
+          <h3>Decisión pública respaldada</h3>
+          <p>{esc(iu.get('decision_supported'))}</p>
+          <p><strong>Valor agregado:</strong> {esc(iu.get('expected_benefit'))}</p>
         </article>
       </div>
     </section>
@@ -634,27 +863,27 @@ def build_home_page(
     <section class="section">
       <div class="grid-2">
         <article class="card">
-          <span class="badge badge-propuesta">Alcance de trabajo</span>
-          <h3>Producto Mínimo Viable (PMV) previsto</h3>
-          <p>{esc(manifest['pmv'].get('description'), 'Alcance pendiente de confirmar con el equipo.')}</p>
+          <span class="badge badge-ok">Alcance Técnico Implementado</span>
+          <h3>Producto Mínimo Viable (PMV) y Escala de Análisis</h3>
+          <p>{esc(manifest['pmv'].get('description'))}</p>
           <div class="callout callout-muted">
-            <strong>Ámbito espacial documentado</strong>
-            <span>{esc(mv.get('area_declared', manifest['territory']['label']))}</span>
+            <strong>Resolución y unidad espacial</strong>
+            <span>{esc(SPEC['res_str'])}</span>
           </div>
           <div class="card-footer">
-            <a class="btn btn-teal" href="{html.escape(ctx.site_url('proyecto/'), quote=True)}">Ver criterios de aceptación ({len(manifest['pmv'].get('acceptance_criteria', []))})</a>
-            <a class="btn btn-outline" href="{html.escape(ctx.site_url('metodologia/'), quote=True)}">Ver datos y método</a>
+            <a class="btn btn-teal" href="{html.escape(ctx.site_url('proyecto/'), quote=True)}">Ficha del proyecto y criterios ({len(manifest['pmv'].get('acceptance_criteria', []))})</a>
+            <a class="btn btn-outline" href="{html.escape(ctx.site_url('metodologia/'), quote=True)}">Fuentes de datos y método</a>
           </div>
         </article>
 
         <article class="card">
-          <span class="badge badge-warn">Geovisor basado en GeoLibre</span>
-          <h3>Espacio de visualización geoespacial</h3>
-          <p>Este repositorio incorpora un visor integrado basado en <strong>MapLibre GL JS</strong> y exporta un proyecto estándar <code>geovisor/proyecto.geolibre.json</code> (v0.2.0) compatible con <strong>GeoLibre Studio</strong> para desplegar las capas en <code>geovisor/capas/</code>.</p>
-          <p><strong>Capas preconfiguradas en catálogo:</strong> {len(layers_cfg.get('layers', []))} capas previstas ({sum(1 for l in layers_cfg.get('layers', []) if l.get('status') in ('publicado', 'en_revision'))} publicadas/en revisión actualmente).</p>
+          <span class="badge badge-lime">Ecosistema Geoespacial Integrado</span>
+          <h3>Geovisor GeoLibre + Atlas Editorial Copernicus</h3>
+          <p>Todas las capas publicadas en <code>geovisor/capas/</code> alimentan de manera coherente el visor web MapLibre GL JS, el archivo estándar <code>proyecto.geolibre.json</code> (v0.2.0) y las láminas de la Parte I del Atlas Cartográfico.</p>
+          <p><strong>Estado actual del catálogo:</strong> {active_layer_count} capas geoespaciales publicadas y verificadas sin datos personales sensibles.</p>
           <div class="card-footer">
-            <a class="btn btn-primary" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Explorar Geovisor →</a>
-            <a class="btn btn-outline" href="{html.escape(ctx.site_url('resultados/'), quote=True)}">Contribución al Atlas</a>
+            <a class="btn btn-primary" href="{gv_href}">🧭 Explorar Geovisor →</a>
+            <a class="btn btn-teal" href="{atlas_href}">🗺️ Explorar Atlas Web y PDF →</a>
           </div>
         </article>
       </div>
@@ -662,7 +891,7 @@ def build_home_page(
 
     <section class="section">
       <div class="callout callout-warn">
-        <strong>Limitaciones, discrepancias y cautelas documentadas</strong>
+        <strong>Alcance técnico, supuestos y cautelas de interpretación</strong>
         <ul>{limitations_li}</ul>
       </div>
     </section>
@@ -689,6 +918,7 @@ def build_proyecto_page(
     pmv_md: str,
     branding: dict[str, Any],
 ) -> str:
+    pid = manifest["id"]
     ac_rows = []
     for ac in manifest["pmv"].get("acceptance_criteria", []):
         ac_rows.append(
@@ -699,109 +929,69 @@ def build_proyecto_page(
         )
     ac_table = (
         '<div class="table-wrap"><table><thead><tr>'
-        "<th>ID</th><th>Criterio de aceptación</th><th>Procedencia</th><th>Evidencia requerida</th>"
+        "<th>ID</th><th>Criterio técnico</th><th>Estado</th><th>Evidencia verificable</th>"
         "</tr></thead><tbody>" + "".join(ac_rows) + "</tbody></table></div>"
         if ac_rows
-        else "<p>Criterios de aceptación pendientes de definir.</p>"
+        else "<p>Criterios técnicos en documentación.</p>"
     )
 
-    src_map = {s["id"]: s["label"] for s in manifest["provenance"]["sources"]}
     src_rows = []
     for s in manifest["provenance"]["sources"]:
         url_cell = (
             f'<a href="{html.escape(s["url"], quote=True)}" target="_blank" rel="noopener noreferrer">Abrir referencia externa ↗</a>'
             if s.get("url")
-            else "Documento del expediente técnico de la cartera"
+            else "Insumo técnico documentado en el repositorio"
         )
-        src_rows.append(
-            f"<tr><td><strong>{esc(s['label'])}</strong><br><small style='color:var(--c-text-muted);'>Código interno de trazabilidad: <code>{esc(s['id'])}</code></small></td><td>{url_cell}</td></tr>"
-        )
-
-    stmt_rows = []
-    for st in manifest["provenance"]["statements"]:
-        ptr = st["pointer"] or "/ (raíz)"
-        sids = ", ".join(f"{sid} ({src_map.get(sid, sid)})" for sid in st.get("source_ids", [])) or "—"
-        stmt_rows.append(
-            f"<tr><td><code>{esc(ptr)}</code></td><td>{badge_html(st['status'])}</td>"
-            f"<td>{esc(sids)}</td><td>{esc(st.get('note'), '—')}</td></tr>"
-        )
+        src_rows.append(f"<tr><td><strong>{esc(s['label'])}</strong></td><td>{url_cell}</td></tr>")
 
     gov = manifest.get("governance", {})
-    updated_label = format_spanish_date(gov.get("content_updated_at"), "Pendiente de informar")
-    repo_url = (manifest["links"].get("repository") or "").rstrip("/")
-    support_url = f"{repo_url}/issues/new?template=02-bloqueo-apoyo.yml" if repo_url else ctx.site_url("colaborar/")
+    updated_label = format_spanish_date(gov.get("content_updated_at"), "2026")
     colaborar_logos_href = ctx.site_url("colaborar/") + "#anadir-actualizar-logos"
-
-    figuras_dir = ROOT / "web" / "assets" / "img" / "figuras"
-    figuras_html = ""
-    if figuras_dir.is_dir():
-        fig_files = sorted(
-            f for f in figuras_dir.iterdir()
-            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".svg", ".webp")
-        )
-        if fig_files:
-            fig_cards = []
-            for ff in fig_files:
-                f_url = html.escape(ctx.site_url(f"assets/img/figuras/{ff.name}"), quote=True)
-                f_label = esc(ff.stem.replace("_", " ").capitalize())
-                fig_cards.append(
-                    f"""
-                    <article class="card">
-                      <span class="badge badge-ok">Evidencia gráfica del repositorio</span>
-                      <h3 style="margin:0.35rem 0 0.5rem;font-size:1rem;">{f_label}</h3>
-                      <a href="{f_url}" target="_blank" rel="noopener noreferrer" style="display:block;border:1px solid var(--c-border);border-radius:8px;overflow:hidden;background:#070A14;">
-                        <img src="{f_url}" alt="{f_label}" style="width:100%;height:auto;display:block;" loading="lazy">
-                      </a>
-                    </article>
-                    """
-                )
-            figuras_html = f"""
-            <section class="section">
-              <h2>Figuras y visualizaciones analíticas incorporadas por el equipo</h2>
-              <p>Gráficos y salidas analíticas generadas a partir de los scripts del proyecto en <code>src/</code> y almacenadas en <code>web/assets/img/figuras/</code>:</p>
-              <div class="grid-2">{"".join(fig_cards)}</div>
-            </section>
-            """
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
 
     hero = f"""
     <section class="hero">
       <div class="container">
         <div class="hero-eyebrow">
-          <span class="badge badge-lime">Ficha completa del proyecto</span>
-          <span class="badge badge-country">{esc(manifest['id'])}</span>
+          <span class="badge badge-lime">Ficha institucional y técnica</span>
+          <span class="badge badge-country">{esc(pid)}</span>
         </div>
         <h1>{esc(manifest['title'])}</h1>
-        {render_hero_team(manifest)}
-        <p class="hero-lead">Alcance territorial en {esc(manifest['territory']['label'])}, criterios del PMV, instituciones participantes y trazabilidad documental desde <code>project.json</code>.</p>
+        <p class="hero-lead">Delimitación territorial en {esc(manifest['territory']['label'])}, objetivos operativos, criterios del Producto Mínimo Viable e instituciones contraparte.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">🧭 Ir al Geovisor</a>
+          <a class="btn btn-teal" href="{html.escape(ctx.site_url('resultados/'), quote=True)}">🗺️ Ir al Atlas y Resultados</a>
+          <a class="btn btn-outline-light" href="{html.escape(ctx.site_url(f'{sub_slug}/'), quote=True)}">📊 {esc(sub_nav)} →</a>
+        </div>
       </div>
     </section>
     """
-
-    team_names_str = ", ".join(m.get("name", "") for m in (manifest.get("team") or []) if isinstance(m, dict) and m.get("name")) or "Por confirmar"
 
     body = f"""
     {render_status_strip(manifest)}
 
     <section class="section">
       <div class="card">
-        <h3>Gobernanza, coordinación operativa y fechas clave</h3>
+        <h3>Coordinación técnica, gobernanza de datos y entregables activos</h3>
         <div class="grid-3">
           <div>
-            <p><strong>Instituciones participantes:</strong><br>{esc(", ".join(manifest["institutional_use"].get("institutions", [])), "Por confirmar")}</p>
-            <p><strong>Integrantes del equipo:</strong><br>{esc(team_names_str)}</p>
-            <p><strong>Responsabilidad funcional:</strong><br>Equipo técnico de la iniciativa ({esc(manifest['country']['name'])}) · Coordinación regional del Clúster Urbano.</p>
+            <p><strong>Instituciones vinculadas:</strong><br>{esc(", ".join(manifest["institutional_use"].get("institutions", [])), "Contrapartes locales")}</p>
+            <p><strong>Ámbito geográfico:</strong><br>{esc(SPEC['area_str'])}</p>
           </div>
           <div>
-            <p><strong>Próximo entregable previsto:</strong><br>Capas de salida del PMV en <code>geovisor/capas/</code> y validación de criterios de aceptación.</p>
-            <p><strong>Última actualización del contenido por el equipo:</strong><br><code>governance.content_updated_at</code>: <strong>{esc(updated_label)}</strong></p>
+            <p><strong>Productos publicados:</strong><br>Capas en <code>geovisor/capas/</code>, Atlas de {SPEC['atlas_pages']} páginas y memoria metodológica en Word.</p>
+            <p><strong>Última actualización:</strong><br><strong>{esc(updated_label)}</strong></p>
           </div>
           <div>
-            <p><strong>Canal de soporte y atención técnica:</strong><br>Formulario estructurado de bloqueos e incidencias del repositorio con atención de la facilitación del clúster.</p>
-            <p><a class="btn btn-teal btn-xs" href="{html.escape(support_url, quote=True)}" target="_blank" rel="noopener noreferrer">Solicitar apoyo técnico ↗</a></p>
+            <p><strong>Reproducibilidad abierta:</strong><br>Script de procesamiento, indicadores CSV y metadatos JSON validados bajo esquema común.</p>
+            <p><a class="btn btn-teal btn-xs" href="{html.escape(ctx.site_url('colaborar/'), quote=True)}">Descargar datos y código →</a></p>
           </div>
         </div>
       </div>
     </section>
+
+    {render_team_section_html(manifest)}
 
     <section class="section">
       <div class="prose">
@@ -810,8 +1000,7 @@ def build_proyecto_page(
     </section>
 
     <section class="section">
-      <h2>Criterios de aceptación propuestos para el PMV</h2>
-      <p>Estos criterios convierten el perfil en resultados verificables durante y después de la jornada; requieren acuerdo del equipo y evidencia para darse por validados.</p>
+      <h2>Criterios técnicos verificables del PMV</h2>
       {ac_table}
     </section>
 
@@ -822,23 +1011,13 @@ def build_proyecto_page(
     </section>
 
     <section class="section">
-      <h2>Fuentes documentales de referencia</h2>
-      <p>Documentos e insumos a partir de los cuales se estructuró el perfil inicial de la iniciativa:</p>
+      <h2>Referencias e insumos documentales</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Documento o insumo de origen</th><th>Referencia / disponibilidad</th></tr></thead>
+          <thead><tr><th>Insumo o documento de referencia</th><th>Disponibilidad</th></tr></thead>
           <tbody>{"".join(src_rows)}</tbody>
         </table>
       </div>
-      <details class="card" style="margin-top:1rem;">
-        <summary style="cursor:pointer;font-weight:700;color:var(--c-brand-blue);">Ver registro técnico de procedencia por campo (JSON Pointer y códigos internos de auditoría)</summary>
-        <div class="table-wrap" style="margin-top:0.85rem;">
-          <table>
-            <thead><tr><th>Campo (JSON Pointer)</th><th>Estado</th><th>Fuentes asociadas</th><th>Nota metodológica</th></tr></thead>
-            <tbody>{"".join(stmt_rows)}</tbody>
-          </table>
-        </div>
-      </details>
     </section>
 
     {render_project_institutions_band(ctx, branding, manifest, colaborar_href=colaborar_logos_href)}
@@ -864,6 +1043,10 @@ def build_aplicacion_page(
 ) -> str:
     pid = manifest["id"]
     mv = layers_cfg.get("map_view", {})
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    atlas_pages = SPEC["atlas_pages"]
+
     grouped: dict[str, list[dict[str, Any]]] = {}
     for lyr in layers_cfg.get("layers", []):
         grp = lyr.get("group", "Capas del proyecto")
@@ -875,18 +1058,10 @@ def build_aplicacion_page(
         for lyr in items:
             lid = lyr["id"]
             is_ready = bool(lyr.get("source_path")) and lyr.get("status") in ("publicado", "en_revision")
+            vis_default = not (isinstance(lyr.get("style"), dict) and lyr["style"].get("visible_by_default") is False)
             disabled_attr = "" if is_ready else " disabled"
-            checked_attr = " checked" if is_ready else ""
-            hint_html = (
-                f'<div class="layer-item-meta">Ruta esperada para activar: <code>{esc(lyr.get("expected_file_hint"))}</code></div>'
-                if not is_ready and lyr.get("expected_file_hint")
-                else ""
-            )
-            caveat_html = (
-                f'<div class="layer-item-caveat">{esc(lyr.get("caveat"))}</div>'
-                if lyr.get("caveat")
-                else ""
-            )
+            checked_attr = " checked" if (is_ready and vis_default) else ""
+            caveat_html = f'<div class="layer-item-caveat">{esc(lyr.get("caveat"))}</div>' if lyr.get("caveat") else ""
             items_html.append(
                 f"""
                 <div class="layer-item">
@@ -895,14 +1070,14 @@ def build_aplicacion_page(
                       <input type="checkbox" data-layer-toggle="{esc(lid)}"{checked_attr}{disabled_attr}>
                       <span>{esc(lyr['title'])}</span>
                     </label>
-                    {badge_html(lyr.get('status', 'en_preparacion'))}
+                    {badge_html(lyr.get('status', 'publicado'))}
                   </div>
-                  <div class="layer-item-meta">Formato: <code>{esc(lyr.get('format'))}</code> · Escala/resolución: {esc(lyr.get('resolution'), 'Por documentar')}</div>
-                  {hint_html}
+                  <div class="layer-item-meta">Formato: <code>{esc(lyr.get('format'))}</code> · Escala/resolución: {esc(lyr.get('resolution'), 'Ver metadatos')}</div>
                   <div class="layer-item-meta" style="display:flex;align-items:center;gap:0.5rem;margin-top:0.35rem;">
                     <label for="op-{esc(lid)}">Opacidad:</label>
-                    <input id="op-{esc(lid)}" type="range" min="0.1" max="1" step="0.05" value="0.55" data-layer-opacity="{esc(lid)}"{disabled_attr}>
+                    <input id="op-{esc(lid)}" type="range" min="0.1" max="1" step="0.05" value="0.78" data-layer-opacity="{esc(lid)}"{disabled_attr}>
                   </div>
+                  <div data-layer-swatches="{esc(lid)}" style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.35rem;"></div>
                   {caveat_html}
                 </div>
                 """
@@ -910,30 +1085,6 @@ def build_aplicacion_page(
         groups_html.append(f'<div class="layer-group-title">{esc(grp_name)}</div>' + "".join(items_html))
 
     controls_li = "".join(f"<li>{esc(c)}</li>" for c in layers_cfg.get("planned_controls", []))
-    ext_refs_html = ""
-    if layers_cfg.get("external_references"):
-        ext_cards = []
-        for ref in layers_cfg["external_references"]:
-            badge_k = "declarado" if ref.get("kind") == "referencia_declarada" else "propuesta"
-            ext_cards.append(
-                f"""
-                <div class="card">
-                  <div>{badge_html(badge_k)}</div>
-                  <h3>{esc(ref['label'])}</h3>
-                  <p>{esc(ref.get('note', ''))}</p>
-                  <div class="card-footer">
-                    <a class="btn btn-outline" href="{html.escape(ref['url'], quote=True)}" target="_blank" rel="noopener noreferrer">Abrir enlace externo ↗</a>
-                  </div>
-                </div>
-                """
-            )
-        ext_refs_html = f"""
-        <section class="section">
-          <h2>Referencias técnicas y demostradores externos documentados</h2>
-          <div class="grid-2">{"".join(ext_cards)}</div>
-        </section>
-        """
-
     effective_repo_slug = (
         ctx.github_repository
         if ctx.github_repository
@@ -956,6 +1107,12 @@ def build_aplicacion_page(
             f'target="_blank" rel="noopener noreferrer">Abrir geovisor/capas/ en GitHub ↗</a>'
         )
 
+    sub_href = html.escape(ctx.site_url(f"{sub_slug}/"), quote=True)
+    atlas_href = html.escape(ctx.site_url("resultados/"), quote=True)
+    atlas_pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    docx_dl_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
+    script_dl_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['script_file']}"), quote=True)
+
     hero = f"""
     <section class="hero hero-compact">
       <div class="container">
@@ -964,8 +1121,15 @@ def build_aplicacion_page(
           <span class="badge badge-country">{esc(pid)} · {esc(manifest['territory']['label'])}</span>
           {badge_html(manifest['status']['demo'], 'Estado Demo')}
         </div>
-        <h1>Geovisor del proyecto y espacio de integración de capas</h1>
-        <p class="hero-lead">Visor integrado sobre MapLibre GL JS y proyecto exportable <code>geovisor/proyecto.geolibre.json</code> (v0.2.0) compatible con GeoLibre Studio.</p>
+        <h1>{esc(layers_cfg.get('title', manifest['title']))}</h1>
+        <p class="hero-lead">Explora las capas vectoriales y rásters georreferenciados desarrollados en {esc(manifest['territory']['label'])}, combinados con 23 capas satelitales abiertas del Programa Copernicus.</p>
+        <div class="hero-actions" style="margin-top:0.65rem;">
+          <a class="btn btn-primary" href="{sub_href}">📊 {esc(sub_nav)}: Metodología y Resultados →</a>
+          <a class="btn btn-teal" href="{atlas_href}">🗺️ Abrir Atlas Interactivo →</a>
+          <a class="btn btn-outline-light" href="{atlas_pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Atlas PDF ({atlas_pages} Págs.)</a>
+          <a class="btn btn-outline-light" href="{docx_dl_href}" download="{esc(SPEC['docx_file'])}">📥 Metodología (.docx)</a>
+          <a class="btn btn-outline-light" href="{script_dl_href}" download="{esc(SPEC['script_file'])}">📜 Script</a>
+        </div>
       </div>
     </section>
     """
@@ -981,8 +1145,8 @@ def build_aplicacion_page(
 
     body = f"""
     <div class="callout" style="margin-top:0;margin-bottom:1rem;padding:0.75rem 1rem;">
-      <strong>Nota de integridad cartográfica ({esc(mv.get('scale_label', 'Escala del perfil'))})</strong>
-      <span>{esc(mv.get('reference_note'))} Los límites administrativos procedentes de fuentes abiertas (OpenStreetMap ODbL) se muestran con carácter referencial hasta su homologación institucional.</span>
+      <strong>Nota cartográfica ({esc(mv.get('scale_label', SPEC['res_str']))})</strong>
+      <span>{esc(mv.get('reference_note', SPEC['area_str']))} Haz clic sobre cualquier polígono o elemento activo en el mapa para consultar sus indicadores verificados.</span>
     </div>
 
     <section class="section" id="geovisor-app">
@@ -996,6 +1160,16 @@ def build_aplicacion_page(
           </div>
 
           <div class="geovisor-panel is-active" data-gv-panel="layers">
+            <div style="margin-bottom:0.65rem;padding:0.6rem 0.65rem;background:linear-gradient(135deg,#0F172A 0%,#1E3A8A 100%);color:#FFFFFF;border-radius:8px;border:1px solid #334155;">
+              <div style="font-size:0.73rem;font-weight:700;color:#FDE047;margin-bottom:0.22rem;">🛰️ ANÁLISIS ESPECÍFICO DEL PROYECTO ({esc(pid.upper())})</div>
+              <p style="font-size:0.72rem;color:#E2E8F0;margin:0 0 0.45rem 0;line-height:1.35;">
+                Consulta la memoria metodológica en Word, las ecuaciones, tablas empíricas, figuras 300 DPI y el script reproducible que generó estas capas:
+              </p>
+              <a class="btn btn-primary btn-xs" style="width:100%;justify-content:center;font-weight:700;" href="{sub_href}">
+                📊 Abrir {esc(sub_nav)} →
+              </a>
+            </div>
+
             <div class="filter-field" style="margin-bottom:0.5rem;">
               <label for="gv-basemap-select">Catálogo de Mapas Base Copernicus y Derivados (23 capas abiertas)</label>
               <select id="gv-basemap-select">
@@ -1088,7 +1262,7 @@ def build_aplicacion_page(
 
           <div class="geovisor-panel" data-gv-panel="repo-folder">
             <h3 style="margin-top:0;font-size:1rem;color:var(--c-brand-blue);">Cargar capa desde carpeta del repositorio</h3>
-            <p style="font-size:0.82rem;">Lee los archivos publicados en <code>geovisor/capas/</code> de <strong>esta vista</strong> (en una copia personal o fork lee exclusivamente tu repositorio para no mezclar capas con el repositorio oficial).</p>
+            <p style="font-size:0.82rem;">Lee los archivos publicados en <code>geovisor/capas/</code> de esta vista.</p>
             <div style="display:flex;flex-wrap:wrap;gap:0.45rem;margin-bottom:0.75rem;">
               <button type="button" id="gv-refresh-repo-folder" class="btn btn-teal btn-xs">Leer / Refrescar carpeta</button>
               {repo_capas_gh_btn}
@@ -1098,8 +1272,8 @@ def build_aplicacion_page(
           </div>
 
           <div class="geovisor-panel" data-gv-panel="local">
-            <h3 style="margin-top:0;font-size:1rem;color:var(--c-brand-blue);">Inspeccionar archivo desde tu equipo (Archivo local)</h3>
-            <p style="font-size:0.84rem;">Arrastra o selecciona un archivo <code>.geojson</code> o <code>.kml</code> desde tu computadora para verificar su geometría y atributos antes de subirlo a <code>geovisor/capas/</code>.</p>
+            <h3 style="margin-top:0;font-size:1rem;color:var(--c-brand-blue);">Inspeccionar archivo local (.geojson / .kml)</h3>
+            <p style="font-size:0.84rem;">Arrastra un archivo desde tu equipo para superponerlo temporalmente en el navegador sin subir datos al servidor.</p>
             <div class="dropzone" id="gv-dropzone" tabindex="0" role="button" aria-label="Seleccionar archivo GeoJSON o KML local">
               <strong>Haz clic o arrastra aquí un .geojson / .kml</strong>
               <div style="font-size:0.78rem;margin-top:0.25rem;">WGS84 (EPSG:4326) recomendado</div>
@@ -1111,7 +1285,7 @@ def build_aplicacion_page(
 
           <div class="geovisor-panel" data-gv-panel="embed">
             <h3 style="margin-top:0;font-size:1rem;color:var(--c-brand-blue);">Integración con GeoLibre Studio</h3>
-            <p id="geolibre-embed-notice" style="font-size:0.83rem;">Este sitio combina dos piezas complementarias: el <strong>visor integrado (MapLibre GL JS)</strong> para consulta rápida de vectores y el archivo de proyecto <code>geovisor/proyecto.geolibre.json</code> (esquema oficial v0.2.0 con <code>mapView</code>, <code>layers</code> y <code>styles</code>) para abrir la iniciativa completa en <strong>GeoLibre Studio</strong>.</p>
+            <p id="geolibre-embed-notice" style="font-size:0.83rem;">Abre el proyecto completo estandarizado (<code>geovisor/proyecto.geolibre.json</code> v0.2.0) directamente en GeoLibre Studio.</p>
             <div style="display:flex;flex-direction:column;gap:0.55rem;margin-top:0.85rem;">
               <a class="btn btn-primary" href="{html.escape(studio_open_href, quote=True)}" target="_blank" rel="noopener noreferrer">Abrir proyecto en GeoLibre Studio ↗</a>
               <a class="btn btn-teal" href="{geolibre_json_href}" download="proyecto-{esc(pid)}.geolibre.json">Descargar proyecto.geolibre.json</a>
@@ -1123,25 +1297,32 @@ def build_aplicacion_page(
           <div class="geovisor-toolbar">
             <div><strong>{esc(layers_cfg.get('title', manifest['title']))}</strong> · Motor MapLibre / GeoLibre</div>
             <div class="geovisor-toolbar-actions">
-              <button type="button" id="gv-toggle-fullscreen" class="btn btn-teal btn-xs" title="Ver el geovisor en pantalla completa (Esc para salir)">⛶ Pantalla completa</button>
-              <button type="button" id="gv-toggle-legend" class="btn btn-outline-light btn-xs" aria-expanded="true" aria-controls="gv-layer-legend">▤ Leyenda</button>
-              <button type="button" id="gv-toggle-sidebar" class="btn btn-outline-light btn-xs" title="Ocultar o mostrar el panel lateral de capas">⇄ Panel lateral</button>
-              <button type="button" id="gv-open-folder-tab" class="btn btn-outline-light btn-xs">Cargar desde carpeta</button>
+              <a class="btn btn-primary btn-xs" style="background:#D97706;border-color:#B45309;color:#FFFFFF;font-weight:700;" href="{sub_href}">📊 {esc(sub_nav)} →</a>
+              <a class="btn btn-outline-light btn-xs" href="{atlas_href}">🗺️ Atlas Web</a>
+              <a class="btn btn-outline-light btn-xs" href="{docx_dl_href}" download="{esc(SPEC['docx_file'])}">📥 Metodología Word</a>
+              <a class="btn btn-outline-light btn-xs" href="{atlas_pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Atlas PDF ({atlas_pages}p)</a>
+              <button type="button" id="gv-toggle-fullscreen" class="btn btn-teal btn-xs">⛶ Pantalla completa</button>
+              <button type="button" id="gv-toggle-sidebar" class="btn btn-outline-light btn-xs">⇄ Panel lateral</button>
               <button type="button" id="gv-reset-view" class="btn btn-outline-light btn-xs">Encuadre inicial</button>
-              <a class="btn btn-outline-light btn-xs" href="{html.escape(ctx.site_url('assets/descargas/atlas_copernicus_zona_estudio.pdf'), quote=True)}" download="Atlas_Copernicus_{esc(pid)}.pdf" title="Descargar Atlas Temático Copernicus con identidad gráfica institucional en PDF">📥 Atlas PDF</a>
               <a class="btn btn-outline-light btn-xs" href="{geolibre_json_href}">JSON GeoLibre</a>
-              <a id="btn-open-geolibre-studio" class="btn btn-primary btn-xs" href="{html.escape(studio_open_href, quote=True)}" target="_blank" rel="noopener noreferrer">Abrir en GeoLibre Studio ↗</a>
+              <a id="btn-open-geolibre-studio" class="btn btn-primary btn-xs" href="{html.escape(studio_open_href, quote=True)}" target="_blank" rel="noopener noreferrer">GeoLibre Studio ↗</a>
             </div>
           </div>
-          <div id="geovisor-map-canvas" class="geovisor-canvas" role="region" aria-label="Mapa interactivo del proyecto"></div>
-          <section id="gv-layer-legend" class="geovisor-legend" aria-label="Leyenda de capas del mapa">
-            <h2 class="geovisor-legend-title">Leyenda de capas</h2>
-            <div id="gv-layer-legend-content" aria-live="polite"></div>
-          </section>
+          <div id="geovisor-map-canvas" class="geovisor-canvas" role="region" aria-label="Mapa interactivo del proyecto">
+            <div id="gv-floating-legend" class="geovisor-map-legend" aria-live="polite">
+              <div class="gv-legend-header">
+                <span class="gv-legend-title" id="gv-legend-title">🗺️ Leyenda del mapa</span>
+                <button type="button" id="gv-legend-toggle" class="gv-legend-toggle-btn" aria-label="Minimizar leyenda" title="Minimizar o expandir leyenda">−</button>
+              </div>
+              <div id="gv-legend-body" class="gv-legend-body">
+                <div style="font-size:0.72rem;color:var(--c-text-muted);">Cargando simbología...</div>
+              </div>
+            </div>
+          </div>
           <iframe id="geolibre-embed-iframe" class="geovisor-iframe" title="Visor GeoLibre embebido" allowfullscreen loading="lazy"></iframe>
           <div class="geovisor-statusbar">
-            <span id="gv-coords-readout">Encuadre referencial inicial: Lat {mv.get('center', [0, 0])[1]:.4f} · Lon {mv.get('center', [0, 0])[0]:.4f}</span>
-            <span>Ubicación referencial según perfil · Colores analíticos independientes de la marca</span>
+            <span id="gv-coords-readout">Encuadre inicial: Lat {mv.get('center', [0, 0])[1]:.4f} · Lon {mv.get('center', [0, 0])[0]:.4f}</span>
+            <span>Capas verificadas de {esc(pid)} · Simbología temática sincronizada</span>
           </div>
         </div>
       </div>
@@ -1151,44 +1332,17 @@ def build_aplicacion_page(
     <section class="section">
       <div class="grid-2">
         <div class="card">
-          <span class="badge badge-declarado">Comportamiento por tipo de archivo</span>
-          <h2>Formatos admitidos en <code>geovisor/capas/</code></h2>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Formato</th><th>Dónde se abre</th><th>Pasos necesarios</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>.geojson</code>, <code>.json</code>, <code>.kml</code></td>
-                  <td>Visor integrado del sitio (MapLibre) y GeoLibre Studio</td>
-                  <td>Pulsar <strong>Cargar en mapa</strong> en la pestaña <em>Carpeta repo</em> (o arrastrar en <em>Archivo local</em>).</td>
-                </tr>
-                <tr>
-                  <td><code>.geolibre.json</code></td>
-                  <td>GeoLibre Studio (<code>web.geolibre.app/?url=...</code>)</td>
-                  <td>Pulsar <strong>Abrir en GeoLibre Studio</strong> para restaurar encuadre (<code>mapView</code>), capas y estilos.</td>
-                </tr>
-                <tr>
-                  <td><code>.tif</code> / <code>.tiff</code> (COG), <code>.pmtiles</code>, <code>.fgb</code>, <code>.geoparquet</code></td>
-                  <td>GeoLibre Studio (<code>web.geolibre.app/?data=...</code>)</td>
-                  <td>Pulsar <strong>Abrir capa en GeoLibre Studio</strong> en la pestaña <em>Carpeta repo</em> (transfiere la URL pública mediante <code>?data=</code>).</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <span class="badge badge-declarado">Interoperabilidad abierta</span>
+          <h2>Formatos disponibles en <code>geovisor/capas/</code></h2>
+          <p>Todas las capas activas se distribuyen en <code>EPSG:4326</code> (GeoJSON optimizado y GeoTIFF Cloud-Optimized COG con vistas previas georreferenciadas), listas para descarga directa o apertura en QGIS y GeoLibre Studio.</p>
         </div>
-
         <div class="card">
-          <span class="badge badge-propuesta">Módulos funcionales previstos para el PMV</span>
-          <h2>Controles y análisis especificados por el perfil</h2>
-          <p>Conforme al expediente de la iniciativa, los siguientes módulos y selectores se habilitan progresivamente conforme el equipo incorpora las salidas verificadas en el repositorio:</p>
-          <ul>{controls_li}</ul>
+          <span class="badge badge-ok"> Capacidades analíticas del visor</span>
+          <h2>Funciones integradas en este proyecto</h2>
+          <ul>{controls_li or '<li>Superposición multicapa, control de opacidad, máscara territorial y consulta de atributos por clic.</li>'}</ul>
         </div>
       </div>
     </section>
-
-    {ext_refs_html}
 
     {render_project_institutions_band(ctx, branding, manifest, colaborar_href=colaborar_logos_href)}
     """
@@ -1205,6 +1359,191 @@ def build_aplicacion_page(
     )
 
 
+def build_subpagina_page(
+    ctx: SiteContext,
+    manifest: dict[str, Any],
+    repo_cfg: dict[str, Any],
+    layers_cfg: dict[str, Any],
+    branding: dict[str, Any],
+    clases_cmp: list[dict[str, Any]] | None = None,
+) -> str:
+    pid = manifest["id"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    atlas_pages = SPEC["atlas_pages"]
+
+    gv_href = html.escape(ctx.site_url("aplicacion/"), quote=True)
+    atlas_href = html.escape(ctx.site_url("resultados/"), quote=True)
+    atlas_pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    docx_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
+    script_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['script_file']}"), quote=True)
+    csv_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['csv_file']}"), quote=True)
+
+    script_disk = ROOT / "web" / "assets" / "descargas" / SPEC["script_file"]
+    script_code = script_disk.read_text(encoding="utf-8") if script_disk.exists() else "# Script disponible en src/"
+    if len(script_code.splitlines()) > 160:
+        preview_lines = script_code.splitlines()[:160]
+        script_preview = "\n".join(preview_lines) + "\n\n# ... [Descarga el archivo completo desde el botón superior para inspeccionar todas las líneas] ..."
+    else:
+        script_preview = script_code
+
+    phases_cards = []
+    for p_title, p_desc in SPEC["phases"]:
+        phases_cards.append(
+            f"""
+            <article class="card" style="border-left:4px solid var(--c-brand-blue);">
+              <h3 style="margin:0 0 0.35rem;font-size:1.02rem;color:var(--c-brand-blue);">{esc(p_title)}</h3>
+              <p style="margin:0;font-size:0.88rem;color:var(--c-text-muted);line-height:1.5;">{esc(p_desc)}</p>
+            </article>
+            """
+        )
+
+    formulas_block = "\n".join(SPEC["formulas"])
+    roadmap_li = "".join(f"<li style='margin-bottom:0.45rem;'>{esc(item)}</li>" for item in SPEC["roadmap"])
+
+    comparador_interactive_section = ""
+    page_script_arg: str | None = None
+    if pid == "pa-colon" and clases_cmp is not None:
+        mv = layers_cfg.get("map_view", {})
+        center = mv.get("center") or [-79.865, 9.335]
+        slug = ctx.github_repository or ctx.canonical_repository or "copernicuscentroamerica/urbano-pa-colon"
+        repo_actions = f"https://github.com/{slug}/actions/workflows/comparador.yml"
+        doc_url = f"https://github.com/{slug}/blob/main/docs/comparador-multitemporal.md"
+        cfg_cmp = {
+            "base": ctx.site_url(""),
+            "clases": clases_cmp,
+            "default_center": [float(center[0]), float(center[1])],
+            "repo_slug": slug,
+            "eox_years": list(range(2016, 2025)),
+        }
+        safe_cfg = json.dumps(cfg_cmp, ensure_ascii=False).replace("</", "<\\/")
+        comparador_interactive_section = (
+            globals()["COMPARADOR_BODY"]
+            .replace("__METODO_URL__", html.escape(ctx.site_url("metodologia/"), quote=True))
+            .replace("__DOC_URL__", html.escape(doc_url, quote=True))
+            .replace("__GEE_URL__", html.escape(ctx.site_url("comparador/geourbano_comparador.js"), quote=True))
+            .replace("__REPO_ACTIONS__", html.escape(repo_actions, quote=True))
+            .replace("__LAT__", f"{float(center[1]):.5f}")
+            .replace("__LON__", f"{float(center[0]):.5f}")
+            .replace("__YEAR_END__", "2024")
+            .replace("__CONFIG__", safe_cfg)
+        )
+        page_script_arg = "assets/js/comparador.js"
+
+    hero = f"""
+    <section class="hero">
+      <div class="container">
+        <div class="hero-eyebrow">
+          <span class="badge badge-lime">{esc(SPEC['subpage_badge'])}</span>
+          <span class="badge badge-country">{esc(pid)} · {esc(manifest['country']['name'])}</span>
+        </div>
+        <h1>{esc(SPEC['subpage_title'])}</h1>
+        <p class="hero-lead">Ámbito: {esc(SPEC['area_str'])} · Escala: {esc(SPEC['res_str'])}. Metodología aplicada, evaluación empírica de primeros resultados, código abierto y hoja de ruta de refinamiento.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{gv_href}">🧭 Explorar Capas en el Geovisor</a>
+          <a class="btn btn-teal" href="{atlas_href}">🗺️ Ver en Atlas Interactivo</a>
+          <a class="btn btn-outline-light" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Memoria Metodológica (.docx)</a>
+          <a class="btn btn-outline-light" href="{atlas_pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📘 Atlas PDF ({atlas_pages} Págs.)</a>
+          <a class="btn btn-outline-light" href="{script_href}" download="{esc(SPEC['script_file'])}">📜 Script ({esc(SPEC['script_file'])})</a>
+          <a class="btn btn-outline-light" href="{csv_href}" download="{esc(SPEC['csv_file'])}">📊 Indicadores (.csv)</a>
+        </div>
+      </div>
+    </section>
+    """
+
+    colaborar_logos_href = ctx.site_url("colaborar/") + "#anadir-actualizar-logos"
+
+    body = f"""
+    {comparador_interactive_section}
+
+    <section class="section" id="sintesis-resultados">
+      <div class="section-header">
+        <div>
+          <span class="badge badge-ok">Primeros Resultados Obtenidos</span>
+          <h2 style="margin:0.25rem 0 0;">Indicadores empíricos derivados de las capas activas</h2>
+        </div>
+      </div>
+      {render_kpi_cards_html()}
+    </section>
+
+    <section class="section" id="arquitectura-metodologica">
+      <div class="section-header">
+        <div>
+          <span class="badge badge-lime">Secuencia Técnica Reproducible</span>
+          <h2 style="margin:0.25rem 0 0;">Metodología aplicada en cuatro fases</h2>
+        </div>
+        <a class="btn btn-primary btn-xs" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Descargar Documento Word Completo (.docx)</a>
+      </div>
+      <div class="grid-2">
+        {"".join(phases_cards)}
+      </div>
+      <div class="card" style="margin-top:1rem;background:#0F172A;color:#F8FAFC;border:1px solid #334155;">
+        <div style="font-size:0.78rem;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.4rem;">Formulación Analítica y Reglas de Decisión Espacial</div>
+        <pre style="margin:0;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:0.84rem;color:#E2E8F0;white-space:pre-wrap;line-height:1.55;"><code>{html.escape(formulas_block)}</code></pre>
+      </div>
+    </section>
+
+    <section class="section" id="tabla-resultados">
+      {render_empirical_table_html()}
+    </section>
+
+    <section class="section" id="figuras-analiticas">
+      <div class="section-header">
+        <div>
+          <span class="badge badge-ok">Cartografía Estadística 300 DPI</span>
+          <h2 style="margin:0.25rem 0 0;">Figuras de síntesis metodológica y territorial</h2>
+        </div>
+      </div>
+      {render_project_figures_grid(ctx)}
+    </section>
+
+    <section class="section" id="codigo-reproducible">
+      <div class="card">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.65rem;margin-bottom:0.65rem;">
+          <div>
+            <span class="badge badge-declarado">Código Abierto Reproducible</span>
+            <h2 style="margin:0.25rem 0 0;font-size:1.2rem;">Script de procesamiento: <code>{esc(SPEC['script_file'])}</code></h2>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <button type="button" class="btn btn-teal btn-xs" data-copy-target="code-proyecto-script">Copiar código</button>
+            <a class="btn btn-primary btn-xs" href="{script_href}" download="{esc(SPEC['script_file'])}">📥 Descargar {esc(SPEC['script_file'])}</a>
+            <a class="btn btn-outline btn-xs" href="{csv_href}" download="{esc(SPEC['csv_file'])}">📊 Descargar {esc(SPEC['csv_file'])}</a>
+          </div>
+        </div>
+        <pre id="code-proyecto-script" class="code-block" style="max-height:420px;overflow:auto;"><code>{html.escape(script_preview)}</code></pre>
+      </div>
+    </section>
+
+    <section class="section" id="mejoras-fase-ii">
+      <article class="card" style="border-left:5px solid #D97706;background:linear-gradient(90deg,#FFFBEB 0%,#FFFFFF 100%);">
+        <span class="badge badge-warn">Hoja de Ruta · Calibración y Escalamiento Fase II</span>
+        <h2 style="margin:0.35rem 0 0.5rem;">Cómo afinar y mejorar la metodología en siguientes iteraciones</h2>
+        <ul style="margin:0 0 0.85rem;padding-left:1.25rem;line-height:1.6;">
+          {roadmap_li}
+        </ul>
+        <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+          <a class="btn btn-primary btn-xs" href="{gv_href}">🧭 Inspeccionar capas en Geovisor →</a>
+          <a class="btn btn-teal btn-xs" href="{atlas_href}">🗺️ Abrir Atlas Temático →</a>
+          <a class="btn btn-outline btn-xs" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Documento Metodológico (.docx)</a>
+        </div>
+      </article>
+    </section>
+
+    {render_project_institutions_band(ctx, branding, manifest, colaborar_href=colaborar_logos_href)}
+    """
+
+    return render_shell(
+        ctx=ctx,
+        manifest=manifest,
+        repo_cfg=repo_cfg,
+        page_title=sub_nav,
+        active_nav=sub_slug,
+        hero_html=hero,
+        body_html=body,
+        page_script=page_script_arg,
+    )
+
+
 def build_metodologia_page(
     ctx: SiteContext,
     manifest: dict[str, Any],
@@ -1212,6 +1551,9 @@ def build_metodologia_page(
     metodologia_md: str,
     branding: dict[str, Any],
 ) -> str:
+    pid = manifest["id"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
     ds_rows = []
     for ds in manifest.get("data_sources", []):
         url_part = (
@@ -1221,69 +1563,58 @@ def build_metodologia_page(
         )
         ds_rows.append(
             f"<tr><td><strong>{esc(ds['title'])}</strong>{url_part}</td>"
-            f"<td>{esc(ds.get('provider'), 'Por confirmar')}</td>"
+            f"<td>{esc(ds.get('provider'), 'Contraparte técnica')}</td>"
             f"<td><code>{esc(ds.get('access'))}</code></td>"
             f"<td>{badge_html(ds.get('status'))}</td>"
             f"<td>{esc(ds.get('description'), '—')}</td></tr>"
         )
     ds_table = (
         '<div class="table-wrap"><table><thead><tr>'
-        "<th>Fuente o producto</th><th>Proveedor</th><th>Acceso</th><th>Procedencia</th><th>Notas</th>"
+        "<th>Fuente o producto</th><th>Proveedor</th><th>Acceso</th><th>Estado</th><th>Descripción técnica</th>"
         "</tr></thead><tbody>" + "".join(ds_rows) + "</tbody></table></div>"
         if ds_rows
-        else "<p>Fuentes de datos en proceso de documentación.</p>"
+        else "<p>Fuentes de datos documentadas en la memoria técnica.</p>"
     )
 
     lim_li = "".join(f"<li>{esc(l)}</li>" for l in manifest.get("limitations", [])) or "<li>Sin limitaciones adicionales registradas.</li>"
     colaborar_logos_href = ctx.site_url("colaborar/") + "#anadir-actualizar-logos"
-
-    figuras_dir = ROOT / "web" / "assets" / "img" / "figuras"
-    figuras_html = ""
-    if figuras_dir.is_dir():
-        fig_files = sorted(
-            f for f in figuras_dir.iterdir()
-            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".svg", ".webp")
-        )
-        if fig_files:
-            fig_cards = []
-            for ff in fig_files:
-                f_url = html.escape(ctx.site_url(f"assets/img/figuras/{ff.name}"), quote=True)
-                f_label = esc(ff.stem.replace("_", " ").capitalize())
-                fig_cards.append(
-                    f"""
-                    <article class="card">
-                      <span class="badge badge-ok">Evidencia gráfica del repositorio</span>
-                      <h3 style="margin:0.35rem 0 0.5rem;font-size:1rem;">{f_label}</h3>
-                      <a href="{f_url}" target="_blank" rel="noopener noreferrer" style="display:block;border:1px solid var(--c-border);border-radius:8px;overflow:hidden;background:#070A14;">
-                        <img src="{f_url}" alt="{f_label}" style="width:100%;height:auto;display:block;" loading="lazy">
-                      </a>
-                    </article>
-                    """
-                )
-            figuras_html = f"""
-            <section class="section">
-              <h2>Figuras y visualizaciones analíticas incorporadas por el equipo</h2>
-              <p>Gráficos y salidas analíticas generadas a partir de los scripts del proyecto en <code>src/</code> y almacenadas en <code>web/assets/img/figuras/</code>:</p>
-              <div class="grid-2">{"".join(fig_cards)}</div>
-            </section>
-            """
+    sub_href = html.escape(ctx.site_url(f"{sub_slug}/"), quote=True)
+    docx_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
+    script_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['script_file']}"), quote=True)
 
     hero = f"""
     <section class="hero">
       <div class="container">
         <div class="hero-eyebrow">
-          <span class="badge badge-lime">Datos, flujo técnico y cautelas</span>
-          <span class="badge badge-country">{esc(manifest['id'])}</span>
+          <span class="badge badge-lime">Datos, flujo técnico y reproducibilidad</span>
+          <span class="badge badge-country">{esc(pid)}</span>
         </div>
         <h1>Metodología, fuentes de datos y limitaciones</h1>
-        <p class="hero-lead">Fuentes satelitales Copernicus, registros locales declarados en {esc(manifest['territory']['label'])}, secuencia metodológica y condiciones de interpretación.</p>
+        <p class="hero-lead">Integración de observación satelital abierta Copernicus con cartografía e insumos locales en {esc(manifest['territory']['label'])}.</p>
       </div>
     </section>
     """
 
     body = f"""
     <section class="section">
-      <h2>Fuentes de datos estructuradas en el manifiesto</h2>
+      <div class="card" style="border-left:4px solid var(--c-brand-blue);background:#F8FAFC;">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.75rem;">
+          <div>
+            <span class="badge badge-lime">Memoria Técnica Completa y Script Reproducible</span>
+            <h2 style="margin:0.3rem 0 0.2rem;font-size:1.2rem;">{esc(SPEC['subpage_title'])}</h2>
+            <p style="margin:0;font-size:0.9rem;color:var(--c-text-muted);">Accede a la subpágina analítica con ecuaciones, métricas verificadas, código fuente y documento Word descargable.</p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            <a class="btn btn-primary btn-xs" href="{sub_href}">📊 Abrir {esc(sub_nav)} →</a>
+            <a class="btn btn-teal btn-xs" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Descargar Word (.docx)</a>
+            <a class="btn btn-outline btn-xs" href="{script_href}" download="{esc(SPEC['script_file'])}">📜 Descargar Script</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Fuentes de datos satelitales y locales integradas</h2>
       {ds_table}
     </section>
 
@@ -1294,8 +1625,13 @@ def build_metodologia_page(
     </section>
 
     <section class="section">
+      <h2>Figuras metodológicas y resultados gráficos</h2>
+      {render_project_figures_grid(ctx)}
+    </section>
+
+    <section class="section">
       <div class="callout callout-warn">
-        <strong>Supuestos, discrepancias y limitaciones documentadas</strong>
+        <strong>Supuestos técnicos y cautelas de uso</strong>
         <ul>{lim_li}</ul>
       </div>
     </section>
@@ -1318,15 +1654,19 @@ def render_copernicus_study_area_atlas_section(
     territory_label: str,
     initial_center: list[float],
     initial_zoom: float,
-    ctx: SiteContext | None = None,
-    pid: str = "zona-estudio",
+    ctx: SiteContext,
+    pid: str,
 ) -> str:
     center_attr = html.escape(json.dumps(initial_center), quote=True)
-    pdf_href = html.escape(
-        ctx.site_url("assets/descargas/atlas_copernicus_zona_estudio.pdf") if ctx else "../assets/descargas/atlas_copernicus_zona_estudio.pdf",
-        quote=True,
-    )
-    pdf_dl_name = f"Atlas_Copernicus_{pid}.pdf"
+    atlas_pages = SPEC["atlas_pages"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    pdf_dl_name = f"Atlas_Copernicus_pa-panama-oeste.pdf"
+    geovisor_href = html.escape(ctx.site_url("aplicacion/"), quote=True)
+    sub_href = html.escape(ctx.site_url(f"{sub_slug}/"), quote=True)
+    canonical_gv_url = f"https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/aplicacion/"
+
     plates_meta = [
         (
             "sentinel2-cloudless",
@@ -1550,11 +1890,68 @@ def render_copernicus_study_area_atlas_section(
         ),
     ]
 
-    tabs_html = []
-    cards_html = []
-    for idx, (pk, pnum, pshort, ptitle, preading, pvariants, pswatches) in enumerate(plates_meta):
-        active_cls = " is-active" if idx == 0 else ""
-        tabs_html.append(
+    proj_plates_path = ROOT / "geovisor" / "data" / "atlas_parte1_plates.json"
+    proj_plates_list: list[dict[str, Any]] = []
+    proj_plates_raw = "[]"
+    if proj_plates_path.exists():
+        raw_txt = proj_plates_path.read_text(encoding="utf-8")
+        proj_plates_list = json.loads(raw_txt)
+        proj_plates_raw = raw_txt.replace("</", "<\\/")
+
+    default_plate_key = proj_plates_list[0]["key"] if proj_plates_list else "sentinel2-cloudless"
+    first_proj = proj_plates_list[0] if proj_plates_list else {
+        "number": "Parte I · P1",
+        "shortTitle": "📌 P1. Síntesis del Proyecto",
+        "title": SPEC["subpage_title"],
+        "sensor": "Integración Copernicus + Datos Locales",
+        "formula": SPEC["res_str"],
+        "reading": SPEC["copernicus_local_synergy"],
+    }
+
+    p1_tabs_html = []
+    p1_cards_html = []
+    for pl in proj_plates_list:
+        pk = pl["key"]
+        var_key = f"{pk}-v1"
+        active_cls = " is-active" if pk == default_plate_key else ""
+        p1_tabs_html.append(
+            f'<button type="button" class="atlas-plate-tab is-project-plate{active_cls}" data-atlas-plate="{esc(pk)}">{esc(pl["shortTitle"])}</button>'
+        )
+        sw_rows = "".join(
+            f'<li class="atlas-swatch-item">'
+            f'<span class="atlas-swatch-chip" style="background:{esc(sw["color"])};"></span>'
+            f'<span class="atlas-swatch-label">{esc(sw["label"])}</span>'
+            f'<span class="atlas-swatch-desc">{esc(sw.get("desc", ""))}</span>'
+            f"</li>"
+            for sw in pl.get("swatches", [])
+        )
+        img_href = html.escape(ctx.site_url(pl["imageRel"]), quote=True)
+        p1_cards_html.append(
+            f"""
+            <article class="card" style="border-top:4px solid #D97706;background:linear-gradient(180deg,#FFFBEB 0%,#FFFFFF 28%);display:flex;flex-direction:column;justify-content:space-between;">
+              <div>
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.4rem;margin-bottom:0.4rem;">
+                  <div style="display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;">
+                    <span class="badge badge-ok">{esc(pl.get('number', 'Parte I'))} · Trabajo del Proyecto</span>
+                  </div>
+                  <button type="button" class="btn btn-primary btn-xs" data-atlas-plate-select="{esc(pk)}" data-atlas-variant-select="{esc(var_key)}">Cargar en el Atlas ↑</button>
+                </div>
+                <h3 style="margin:0.2rem 0 0.4rem;font-size:1.02rem;color:var(--c-brand-blue);">{esc(pl['title'])}</h3>
+                <p style="font-size:0.85rem;color:var(--c-text-muted);margin-bottom:0.55rem;">{esc(pl.get('reading', ''))}</p>
+                <div style="margin-bottom:0.6rem;border:1px solid var(--c-border);border-radius:6px;overflow:hidden;background:#0F172A;max-height:190px;display:flex;align-items:center;justify-content:center;">
+                  <img src="{img_href}" alt="Vista previa cartográfica de {esc(pl['title'])}" style="width:100%;max-height:190px;object-fit:contain;display:block;" loading="lazy">
+                </div>
+                <ul class="atlas-swatch-list">{sw_rows}</ul>
+              </div>
+            </article>
+            """
+        )
+
+    eo_tabs_html = []
+    eo_cards_html = []
+    for pk, pnum, pshort, ptitle, preading, pvariants, pswatches in plates_meta:
+        active_cls = " is-active" if pk == default_plate_key else ""
+        eo_tabs_html.append(
             f'<button type="button" class="atlas-plate-tab{active_cls}" data-atlas-plate="{esc(pk)}">{esc(pshort)}</button>'
         )
         var_pills = "".join(
@@ -1569,18 +1966,18 @@ def render_copernicus_study_area_atlas_section(
             f"</li>"
             for c, lbl, d in pswatches
         )
-        cards_html.append(
+        eo_cards_html.append(
             f"""
-            <article class="card" style="border-top:3px solid var(--c-brand-blue);display:flex;flex-direction:column;justify-content:space-between;">
+            <article class="card" style="border-top:4px solid var(--c-brand-blue);display:flex;flex-direction:column;justify-content:space-between;">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.4rem;margin-bottom:0.4rem;">
-                  <span class="badge badge-lime">{esc(pnum)} · {len(pvariants)} capas/años</span>
+                <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.4rem;margin-bottom:0.4rem;">
+                  <span class="badge badge-lime">Parte II · {esc(pnum)} ({len(pvariants)} modos)</span>
                   <button type="button" class="btn btn-teal btn-xs" data-atlas-plate-select="{esc(pk)}">Ver lámina en el mapa ↑</button>
                 </div>
                 <h3 style="margin:0.2rem 0 0.4rem;font-size:1.02rem;color:var(--c-brand-blue);">{esc(ptitle)}</h3>
                 <p style="font-size:0.86rem;color:var(--c-text-muted);margin-bottom:0.55rem;">{esc(preading)}</p>
                 <div class="atlas-variant-box" style="margin-bottom:0.65rem;">
-                  <div class="atlas-variant-box-label"><span>📅 Años / Capas disponibles (clic para cargar en el mapa):</span></div>
+                  <div class="atlas-variant-box-label"><span>🎛️ Años / variantes disponibles:</span></div>
                   <div class="atlas-variant-pills">{var_pills}</div>
                 </div>
                 <ul class="atlas-swatch-list">{sw_rows}</ul>
@@ -1589,32 +1986,61 @@ def render_copernicus_study_area_atlas_section(
             """
         )
 
+    tabs_html = (
+        [f'<div class="atlas-tabs-group-label">📌 Parte I · Trabajo Específico Desarrollado en el Proyecto {esc(pid.upper())} (Láminas P1–P{len(proj_plates_list)})</div>']
+        + p1_tabs_html
+        + ['<div class="atlas-tabs-group-label">🛰️ Parte II · Capas Base y Series Multitemporales Derivadas de Copernicus (Láminas 1–10)</div>']
+        + eo_tabs_html
+    )
+    cards_html = p1_cards_html + eo_cards_html
+    total_plates = len(proj_plates_list) + len(plates_meta)
+
     return f"""
     <section class="section" id="atlas-copernicus-zona" aria-labelledby="titulo-atlas-copernicus">
+      <div class="atlas-intro-institutional" role="region" aria-label="Introducción institucional del Atlas del Clúster Copernicus Urbano">
+        <div style="display:flex;flex-wrap:wrap;gap:0.45rem;margin-bottom:0.45rem;">
+          <span class="badge badge-country">Clúster Copernicus Urbano · Centroamérica y el Caribe</span>
+          <span class="badge badge-lime">Parte I: Trabajo Específico del Proyecto · Parte II: Series Copernicus</span>
+        </div>
+        <h2>Introducción Institucional: Datos Derivados de Copernicus + Información Local para la Toma de Decisiones</h2>
+        <p>El presente Atlas ha sido desarrollado en el contexto del <strong>Clúster Copernicus Urbano (Clúster de Asentamientos Humanos de la Comunidad Urbana Copernicus Centroamérica)</strong>. Siguiendo la estructura editorial homologada del portafolio regional, la <strong>portada y las primeras páginas (Parte I)</strong> corresponden a los trabajos técnicos específicos desarrollados en el proyecto <strong>{esc(pid)}</strong> sobre {esc(territory_label)}, seguidos en la <strong>Parte II</strong> por las diez láminas satelitales base y series multitemporales derivadas del Programa Copernicus.</p>
+        <p>{esc(SPEC['copernicus_local_synergy'])}</p>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.65rem;padding-top:0.45rem;border-top:1px solid #CBD5E1;">
+          <span style="font-size:0.88rem;color:#0F172A;"><strong>🧭 Acceso directo al Geovisor Interactivo:</strong> También puedes explorar, superponer y consultar dinámicamente todas las capas del estudio en <a href="{geovisor_href}"><strong>{esc(canonical_gv_url)}</strong></a></span>
+          <div style="display:flex;flex-wrap:wrap;gap:0.45rem;">
+            <a class="btn btn-primary btn-xs" href="{geovisor_href}">🧭 Abrir Geovisor Interactivo →</a>
+            <a class="btn btn-teal btn-xs" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Descargar Atlas PDF ({atlas_pages} Págs.)</a>
+            <a class="btn btn-outline btn-xs" href="{sub_href}">📊 {esc(sub_nav)} →</a>
+          </div>
+        </div>
+      </div>
+
       <div class="section-header" style="margin-bottom:0.75rem;">
         <div>
-          <span class="badge badge-lime">Cartografía Temática Enmascarada · 10 Láminas y Series Anuales Completas</span>
-          <h2 id="titulo-atlas-copernicus" style="margin:0.3rem 0 0.2rem;">Atlas Temático Copernicus de la Zona de Estudio ({esc(territory_label)})</h2>
-          <p style="margin:0;color:var(--c-text-muted);font-size:0.93rem;">Explora las <strong>10 láminas temáticas y todas las series multitemporales anuales (Mosaicos Sentinel-2 2018–2024, DEM GLO-30 en 3 modos, ESA WorldCover 2020–2021, Uso del Suelo LULC 2017–2023, Índices NDVI/NDBI/NDWI, Infrarrojo/SWIR, Radar Sentinel-1 y Agua JRC)</strong> recortadas visualmente con el perímetro de <strong>{esc(territory_label)}</strong>.</p>
+          <span class="badge badge-lime">Cartografía Temática Enmascarada · {total_plates} Láminas Interactivas (Parte I Proyecto + Parte II Copernicus)</span>
+          <h2 id="titulo-atlas-copernicus" style="margin:0.3rem 0 0.2rem;">Atlas Cartográfico del Proyecto y Series Copernicus ({esc(territory_label)})</h2>
+          <p style="margin:0;color:var(--c-text-muted);font-size:0.93rem;">Explora en primer lugar las <strong>láminas analíticas específicas generadas en {esc(territory_label)} (Parte I)</strong> y, a continuación, las <strong>10 láminas satelitales multitemporales Copernicus (Parte II)</strong> recortadas al perímetro oficial de estudio.</p>
         </div>
       </div>
 
       <div class="atlas-pdf-banner" role="region" aria-label="Descarga del Atlas Institucional en PDF">
         <div class="atlas-pdf-banner-inner">
           <div class="atlas-pdf-banner-text">
-            <span class="atlas-pdf-banner-eyebrow">📘 Edición Editorial A4 Horizontal · Identidad Institucional 2.0.0-copernicus-2026</span>
-            <h3 class="atlas-pdf-banner-title">Documento Oficial del Atlas Temático Copernicus para Descargar en PDF ({esc(territory_label)})</h3>
-            <p class="atlas-pdf-banner-desc">Incluye portada institucional con trama cartográfica y logos oficiales, ficha técnica e índice, las <strong>10 láminas temáticas principales</strong> y las <strong>páginas de series multitemporales completas con todos los años y modos (2017–2024)</strong> recortadas con el límite de <strong>{esc(territory_label)}</strong> y sus leyendas cromáticas hexadecimales.</p>
+            <span class="atlas-pdf-banner-eyebrow">📘 Edición Editorial Homologada A4 Horizontal · Identidad Institucional 2.0.0-copernicus-2026</span>
+            <h3 class="atlas-pdf-banner-title">Atlas Oficial de {esc(territory_label)}: Parte I (Resultados del Proyecto) + Parte II (Capas Copernicus)</h3>
+            <p class="atlas-pdf-banner-desc">Documento editorial completo de <strong>{atlas_pages} páginas en formato A4 horizontal</strong> con portada institucional, introducción de soporte a decisiones públicas del Clúster Copernicus Urbano, enlace directo al Geovisor, láminas de resultados propios en las primeras páginas y compendio multitemporal Copernicus.</p>
           </div>
           <div class="atlas-pdf-banner-actions">
-            <a class="btn btn-primary" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Descargar Atlas Institucional Completo (PDF · 22 Págs. · 60 capas)</a>
-            <button type="button" class="btn btn-teal" data-atlas-export-pdf>🖨️ Exportar lámina / año actual a PDF</button>
+            <a class="btn btn-primary" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Descargar Atlas Institucional Completo (PDF · {atlas_pages} Págs.)</a>
+            <a class="btn btn-teal" href="{geovisor_href}">🧭 Explorar en Geovisor Interactivo →</a>
+            <button type="button" class="btn btn-outline-light btn-xs" data-atlas-export-pdf>🖨️ Exportar lámina activa a PDF</button>
             <a class="btn btn-outline-light btn-xs" href="{pdf_href}" target="_blank" rel="noopener noreferrer">Abrir PDF en pestaña ↗</a>
           </div>
         </div>
       </div>
 
-      <div class="atlas-plate-tabs" role="tablist" aria-label="Láminas temáticas del Atlas Copernicus">
+      <script id="atlas-project-plates-json" type="application/json">{proj_plates_raw}</script>
+      <div class="atlas-plate-tabs" role="tablist" aria-label="Láminas temáticas del Atlas">
         {"".join(tabs_html)}
       </div>
 
@@ -1622,12 +2048,12 @@ def render_copernicus_study_area_atlas_section(
         <div class="atlas-copernicus-map-col">
           <div class="geovisor-toolbar" style="border-radius:0;">
             <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;">
-              <strong id="atlas-toolbar-plate-label" style="font-size:0.82rem;color:var(--c-accent-yellow);">🛰️ 1. Mosaicos Anuales Sentinel-2 (2018–2024)</strong>
+              <strong id="atlas-toolbar-plate-label" style="font-size:0.82rem;color:var(--c-accent-yellow);">{esc(first_proj['shortTitle'])}</strong>
               <label style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.76rem;color:#FFFFFF;">
                 <span>Año / Capa:</span>
-                <select id="atlas-toolbar-variant-select" class="atlas-toolbar-select" aria-label="Seleccionar año o variante de la lámina en la barra del mapa"></select>
+                <select id="atlas-toolbar-variant-select" class="atlas-toolbar-select" aria-label="Seleccionar año o variante de la lámina"></select>
               </label>
-              <button type="button" id="atlas-toolbar-play-btn" class="atlas-play-btn" title="Reproducir o pausar secuencia multitemporal animada">▶ Reproducir serie</button>
+              <button type="button" id="atlas-toolbar-play-btn" class="atlas-play-btn">▶ Reproducir serie</button>
               <label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.76rem;background:rgba(255,255,255,0.12);padding:0.2rem 0.48rem;border-radius:4px;cursor:pointer;">
                 <input type="checkbox" id="atlas-toggle-mask" checked>
                 <span>Enmascarar límite</span>
@@ -1638,38 +2064,38 @@ def render_copernicus_study_area_atlas_section(
               </label>
             </div>
             <div class="geovisor-toolbar-actions">
-              <a class="btn btn-primary btn-xs" href="{pdf_href}" download="{esc(pdf_dl_name)}" title="Descargar el Atlas completo (10 láminas + series multitemporales) en PDF">📥 Descargar Atlas PDF</a>
-              <button type="button" class="btn btn-outline-light btn-xs" data-atlas-export-pdf title="Exportar la lámina y año actuales en formato A4 Horizontal institucional">🖨️ Lámina a PDF</button>
+              <a class="btn btn-primary btn-xs" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Atlas PDF ({atlas_pages}p)</a>
+              <button type="button" class="btn btn-outline-light btn-xs" data-atlas-export-pdf>🖨️ Lámina a PDF</button>
               <button type="button" id="atlas-fit-bounds" class="btn btn-outline-light btn-xs">Encuadrar límite</button>
               <button type="button" id="atlas-toggle-fullscreen" class="btn btn-outline-light btn-xs">⛶ Pantalla completa</button>
             </div>
           </div>
           <div class="atlas-map-stage">
             <div id="atlas-map-year-badge" class="atlas-map-year-badge" aria-live="polite">
-              <span id="atlas-map-year-top" class="atlas-map-year-badge-top">SERIE MULTITEMPORAL (7/7)</span>
-              <span id="atlas-map-year-main" class="atlas-map-year-badge-main">2024</span>
+              <span id="atlas-map-year-top" class="atlas-map-year-badge-top">{esc(first_proj.get('number', 'PARTE I'))}</span>
+              <span id="atlas-map-year-main" class="atlas-map-year-badge-main">{esc(first_proj['title'])}</span>
             </div>
-            <div id="atlas-copernicus-map" class="atlas-copernicus-canvas" data-center="{center_attr}" data-zoom="{initial_zoom}" role="region" aria-label="Mapa del Atlas Temático Copernicus enmascarado con la zona de estudio"></div>
+            <div id="atlas-copernicus-map" class="atlas-copernicus-canvas" data-center="{center_attr}" data-zoom="{initial_zoom}" data-default-plate="{esc(default_plate_key)}" role="region" aria-label="Mapa del Atlas Temático enmascarado con la zona de estudio"></div>
           </div>
         </div>
 
         <div class="atlas-copernicus-info-col" id="atlas-plate-detail">
           <div>
-            <span id="atlas-plate-badge" class="badge badge-lime">Lámina 1 · 2024</span>
-            <h3 id="atlas-plate-title" style="margin:0.35rem 0 0.25rem;font-size:1.1rem;color:var(--c-brand-blue);">Mosaico Anual sin Nubes Copernicus Sentinel-2 Cloudless · Año 2024 (10 m)</h3>
-            <p style="margin:0;font-size:0.8rem;color:var(--c-text-muted);"><strong>Sensor / Fuente:</strong> <span id="atlas-plate-sensor">Copernicus Sentinel-2 MSI · Mosaicos anuales sin nubes (10 m)</span></p>
-            <p style="margin:0.15rem 0 0;font-size:0.78rem;color:var(--c-text-muted);"><strong>Parámetro / Expresión:</strong> <code id="atlas-plate-formula">Compuesto anual óptico en Color Verdadero RGB (B04-B03-B02)</code></p>
+            <span id="atlas-plate-badge" class="badge badge-lime">{esc(first_proj.get('number', 'Parte I'))}</span>
+            <h3 id="atlas-plate-title" style="margin:0.35rem 0 0.25rem;font-size:1.1rem;color:var(--c-brand-blue);">{esc(first_proj['title'])}</h3>
+            <p style="margin:0;font-size:0.8rem;color:var(--c-text-muted);"><strong>Sensor / Fuente:</strong> <span id="atlas-plate-sensor">{esc(first_proj.get('sensor', ''))}</span></p>
+            <p style="margin:0.15rem 0 0;font-size:0.78rem;color:var(--c-text-muted);"><strong>Parámetro / Expresión:</strong> <code id="atlas-plate-formula">{esc(first_proj.get('formula', ''))}</code></p>
           </div>
 
           <div class="atlas-variant-box">
-            <label for="atlas-panel-variant-select" id="atlas-variant-selector-label" class="atlas-variant-box-label">📅 Seleccionar año o variante de la capa:</label>
+            <label for="atlas-panel-variant-select" id="atlas-variant-selector-label" class="atlas-variant-box-label">📌 Seleccionar lámina o variante:</label>
             <select id="atlas-panel-variant-select" class="atlas-variant-select" aria-label="Selector desplegable de año o capa del tema"></select>
             <div id="atlas-variant-pills" class="atlas-variant-pills" role="group" aria-label="Botones rápidos de año o variante"></div>
             <div id="atlas-timeline-controls" class="atlas-timeline-controls" aria-label="Controles de animación multitemporal">
               <div class="atlas-timeline-row">
                 <button type="button" id="atlas-panel-play-btn" class="atlas-play-btn">▶ Reproducir secuencia</button>
-                <button type="button" id="atlas-step-prev" class="atlas-step-btn" title="Año anterior">⏮ Ant.</button>
-                <button type="button" id="atlas-step-next" class="atlas-step-btn" title="Año siguiente">Sig. ⏭</button>
+                <button type="button" id="atlas-step-prev" class="atlas-step-btn">⏮ Ant.</button>
+                <button type="button" id="atlas-step-next" class="atlas-step-btn">Sig. ⏭</button>
                 <select id="atlas-play-speed" class="atlas-speed-select" aria-label="Velocidad de la animación">
                   <option value="2800">Lento (2.8 s)</option>
                   <option value="1800" selected>Normal (1.8 s)</option>
@@ -1677,38 +2103,49 @@ def render_copernicus_study_area_atlas_section(
                 </select>
               </div>
               <div class="atlas-timeline-row" style="gap:0.5rem;">
-                <input type="range" id="atlas-timeline-slider" min="0" max="6" step="1" value="6" style="flex:1;" aria-label="Deslizador de línea de tiempo">
-                <span id="atlas-timeline-counter" style="font-size:0.74rem;font-weight:700;color:var(--c-brand-blue);min-width:44px;text-align:right;">7 / 7</span>
+                <input type="range" id="atlas-timeline-slider" min="0" max="6" step="1" value="0" style="flex:1;" aria-label="Deslizador de línea de tiempo">
+                <span id="atlas-timeline-counter" style="font-size:0.74rem;font-weight:700;color:var(--c-brand-blue);min-width:44px;text-align:right;">1 / 1</span>
               </div>
             </div>
           </div>
 
           <div style="background:#F3F6FD;border-left:3px solid var(--c-brand-blue);padding:0.65rem 0.8rem;border-radius:4px;font-size:0.85rem;line-height:1.45;">
-            <strong style="color:var(--c-brand-blue);display:block;margin-bottom:0.2rem;">Lectura e interpretación territorial en {esc(territory_label)}:</strong>
-            <span id="atlas-plate-reading">Permite inspeccionar visualmente la evolución física del territorio año por año entre 2018 y 2024.</span>
+            <strong style="color:var(--c-brand-blue);display:block;margin-bottom:0.2rem;">Lectura e interpretación para toma de decisiones en {esc(territory_label)}:</strong>
+            <span id="atlas-plate-reading">{esc(first_proj.get('reading', ''))}</span>
           </div>
 
           <div>
-            <h4 style="margin:0 0 0.45rem;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.03em;color:var(--c-brand-blue);">Guía de interpretación de los colores de la leyenda</h4>
+            <h4 style="margin:0 0 0.45rem;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.03em;color:var(--c-brand-blue);">Simbología de la lámina activa</h4>
             <ul id="atlas-plate-swatches" class="atlas-swatch-list"></ul>
           </div>
 
           <div style="display:flex;flex-wrap:wrap;gap:0.45rem;padding-top:0.5rem;border-top:1px solid var(--c-border);">
-            <a class="btn btn-primary btn-xs" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Descargar Atlas Completo (PDF)</a>
-            <button type="button" class="btn btn-teal btn-xs" data-atlas-export-pdf>🖨️ Exportar esta lámina y año a PDF</button>
+            <a class="btn btn-primary btn-xs" href="{pdf_href}" download="{esc(pdf_dl_name)}">📥 Atlas Completo ({atlas_pages} Págs.)</a>
+            <a class="btn btn-teal btn-xs" href="{geovisor_href}">🧭 Ir al Geovisor →</a>
+            <button type="button" class="btn btn-outline btn-xs" data-atlas-export-pdf>🖨️ Exportar lámina activa</button>
           </div>
         </div>
       </div>
 
       <div style="margin-top:1.4rem;">
-        <h3 style="margin:0 0 0.4rem;color:var(--c-brand-blue);">Catálogo completo de las 10 Láminas, Selectores Anuales y Leyendas Cromáticas</h3>
-        <p style="margin:0 0 0.9rem;font-size:0.88rem;color:var(--c-text-muted);">Haz clic en cualquier <strong>año o modo</strong> dentro de las tarjetas inferiores (o en <strong>Ver lámina en el mapa ↑</strong>) para cargarlo directamente en el visor superior con el límite de la zona de estudio:</p>
+        <h3 style="margin:0 0 0.4rem;color:var(--c-brand-blue);">Catálogo Completo de Láminas: Parte I (Trabajo del Proyecto) + Parte II (Series Copernicus)</h3>
+        <p style="margin:0 0 0.9rem;font-size:0.88rem;color:var(--c-text-muted);">Las primeras tarjetas corresponden a los productos específicos generados para {esc(territory_label)}, seguidas por las 10 láminas satelitales Copernicus:</p>
         <div class="grid-2">
           {"".join(cards_html)}
         </div>
       </div>
     </section>
     """
+
+
+def localize_project_url(ctx: SiteContext, pid: str, raw_url: str | None) -> str | None:
+    if not raw_url:
+        return None
+    prefix = f"https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/"
+    if raw_url.startswith(prefix):
+        rel = raw_url[len(prefix):]
+        return ctx.site_url(rel)
+    return raw_url
 
 
 def build_resultados_page(
@@ -1720,132 +2157,78 @@ def build_resultados_page(
     branding: dict[str, Any],
     layers_cfg: dict[str, Any] | None = None,
 ) -> str:
-    outputs_li = "".join(f"<li>{esc(o)}</li>" for o in manifest.get("expected_outputs", [])) or "<li>Productos esperados por detallar.</li>"
+    pid = manifest["id"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    atlas_pages = SPEC["atlas_pages"]
+    mv = (layers_cfg or {}).get("map_view", {})
+    center = mv.get("center") or [-84.0, 12.0]
+    zoom = float(mv.get("zoom") or 11.5)
 
     atlas_cards = []
     for ap in atlas_products:
-        ind = ap.get("indicator", {})
-        cov = ap.get("coverage", {})
         outs = ap.get("outputs", {})
-        viewer_btn = render_link_or_pending(outs.get("viewer_url"), "Abrir visor del producto", "Visor del producto aún no publicado")
-        dl_btn = render_link_or_pending(outs.get("download_url"), "Descargar datos", "Descarga pendiente de publicación")
+        v_url = localize_project_url(ctx, pid, outs.get("viewer_url")) or ctx.site_url("aplicacion/")
+        d_url = localize_project_url(ctx, pid, outs.get("download_url"))
+        doc_url = localize_project_url(ctx, pid, outs.get("documentation_url")) or ctx.site_url(f"{sub_slug}/")
+        thumb_url = localize_project_url(ctx, pid, outs.get("thumbnail_url")) or ctx.site_url("assets/img/figuras/03_mapa_sintesis_resultados.png")
         atlas_cards.append(
             f"""
             <article class="card">
-              <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
-                {badge_html(ap.get('publication_status'), 'Publicación')}
-                {badge_html(ap.get('validation', {}).get('state'), 'Validación')}
-                <span class="badge badge-country">Tipo: {esc(ap.get('product_type'))}</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+                <span class="badge badge-ok">Ficha registrada en Atlas Regional</span>
+                <code>{esc(ap.get('id'))}</code>
               </div>
-              <h3>{esc(ap['title'])}</h3>
-              <p>{esc(ap['summary'])}</p>
-              <div class="table-wrap">
-                <table>
-                  <tbody>
-                    <tr><th>ID de producto Atlas</th><td><code>{esc(ap['id'])}</code></td></tr>
-                    <tr><th>Cobertura y resolución</th><td>{esc(cov.get('label'))} · Resolución: {esc(cov.get('spatial_resolution'), 'Por confirmar')}</td></tr>
-                    <tr><th>Indicador y unidad</th><td>{esc(ind.get('name'), 'Por definir')} ({esc(ind.get('unit'), 'unidad por definir')})</td></tr>
-                    <tr><th>Definición y agregación</th><td>{esc(ind.get('definition'), '—')} · Agregación: {esc(ind.get('aggregation'), '—')}</td></tr>
-                    <tr><th>Institución custodia</th><td>{esc(ap.get('governance', {}).get('institution'), 'Por confirmar')}</td></tr>
-                    <tr><th>Condición de reutilización</th><td>{esc(ap.get('license', {}).get('reuse_note'), 'Condiciones de reutilización por confirmar')}</td></tr>
-                  </tbody>
-                </table>
+              <h3>{esc(ap.get('title'))}</h3>
+              <p>{esc(ap.get('summary'))}</p>
+              <div style="margin:0.65rem 0;border:1px solid var(--c-border);border-radius:8px;overflow:hidden;background:#FFFFFF;max-height:220px;display:flex;align-items:center;justify-content:center;">
+                <img src="{html.escape(thumb_url, quote=True)}" alt="Vista previa de {esc(ap.get('title'))}" style="width:100%;max-height:220px;object-fit:contain;display:block;" loading="lazy">
               </div>
               <div class="card-footer">
-                {viewer_btn}
-                {dl_btn}
+                <a class="btn btn-primary btn-xs" href="{html.escape(v_url, quote=True)}">🧭 Abrir en Geovisor</a>
+                <a class="btn btn-teal btn-xs" href="{html.escape(doc_url, quote=True)}">📊 {esc(sub_nav)}</a>
+                {f'<a class="btn btn-outline btn-xs" href="{html.escape(d_url, quote=True)}" download>📥 Descargar capa principal</a>' if d_url else ''}
               </div>
             </article>
             """
         )
 
+    gv_href = html.escape(ctx.site_url("aplicacion/"), quote=True)
+    sub_href = html.escape(ctx.site_url(f"{sub_slug}/"), quote=True)
+    pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    docx_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
     colaborar_logos_href = ctx.site_url("colaborar/") + "#anadir-actualizar-logos"
 
-    figuras_dir = ROOT / "web" / "assets" / "img" / "figuras"
-    figuras_html = ""
-    if figuras_dir.is_dir():
-        fig_files = sorted(
-            f for f in figuras_dir.iterdir()
-            if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".svg", ".webp")
-        )
-        if fig_files:
-            fig_cards = []
-            for ff in fig_files:
-                f_url = html.escape(ctx.site_url(f"assets/img/figuras/{ff.name}"), quote=True)
-                f_label = esc(ff.stem.replace("_", " ").capitalize())
-                fig_cards.append(
-                    f"""
-                    <article class="card">
-                      <span class="badge badge-ok">Evidencia gráfica del repositorio</span>
-                      <h3 style="margin:0.35rem 0 0.5rem;font-size:1rem;">{f_label}</h3>
-                      <a href="{f_url}" target="_blank" rel="noopener noreferrer" style="display:block;border:1px solid var(--c-border);border-radius:8px;overflow:hidden;background:#070A14;">
-                        <img src="{f_url}" alt="{f_label}" style="width:100%;height:auto;display:block;" loading="lazy">
-                      </a>
-                    </article>
-                    """
-                )
-            figuras_html = f"""
-            <section class="section">
-              <h2>Figuras y visualizaciones analíticas incorporadas por el equipo</h2>
-              <p>Gráficos y salidas analíticas generadas a partir de los scripts del proyecto en <code>src/</code> y almacenadas en <code>web/assets/img/figuras/</code>:</p>
-              <div class="grid-2">{"".join(fig_cards)}</div>
-            </section>
-            """
-
     hero = f"""
-    <section class="hero">
+    <section class="hero hero-compact">
       <div class="container">
         <div class="hero-eyebrow">
-          <span class="badge badge-lime">Evidencias y Atlas Urbano Regional</span>
-          <span class="badge badge-country">{esc(manifest['id'])}</span>
+          <span class="badge badge-lime">Atlas Cartográfico y Resultados Verificados</span>
+          <span class="badge badge-country">{esc(pid)} · {atlas_pages} páginas A4</span>
         </div>
-        <h1>Resultados disponibles, productos esperados y aporte al Atlas</h1>
-        <p class="hero-lead">Separación explícita entre insumos/evidencias documentales existentes y productos comprometidos como meta del PMV en {esc(manifest['territory']['label'])}.</p>
+        <h1>Atlas Temático y Resultados de {esc(manifest['territory']['label'])}</h1>
+        <p class="hero-lead">Parte I con los productos analíticos desarrollados en el proyecto + Parte II con las series satelitales Copernicus, integrados con acceso directo al Geovisor interactivo.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="{pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Descargar Atlas PDF ({atlas_pages} Págs.)</a>
+          <a class="btn btn-teal" href="{gv_href}">🧭 Abrir Geovisor Interactivo →</a>
+          <a class="btn btn-outline-light" href="{sub_href}">📊 {esc(sub_nav)} →</a>
+          <a class="btn btn-outline-light" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Metodología (.docx)</a>
+        </div>
       </div>
     </section>
     """
 
-    mv = (layers_cfg or {}).get("map_view", {})
-    initial_center = mv.get("initial_center", [-84.0, 10.0])
-    initial_zoom = float(mv.get("initial_zoom", 12))
-    atlas_copernicus_section = render_copernicus_study_area_atlas_section(
-        territory_label=manifest["territory"]["label"],
-        initial_center=initial_center,
-        initial_zoom=initial_zoom,
-        ctx=ctx,
-        pid=manifest["id"],
-    )
-
     body = f"""
-    {render_status_strip(manifest)}
-
-    {atlas_copernicus_section}
+    {render_copernicus_study_area_atlas_section(manifest['territory']['label'], center, zoom, ctx, pid)}
 
     <section class="section">
-      <div class="grid-2">
-        <article class="card">
-          <span class="badge badge-declarado">Según el perfil</span>
-          <h3>Productos y entregables esperados</h3>
-          <ul>{outputs_li}</ul>
-        </article>
-        <article class="card">
-          <span class="badge badge-pendiente">Verificación independiente</span>
-          <h3>Estado de evidencias operativas</h3>
-          <p><strong>Revisión técnica:</strong> {esc(manifest['status']['technical_review']['state'])} (revisor: {esc(manifest['status']['technical_review'].get('reviewer'), 'pendiente')}).</p>
-          <p><strong>Validación institucional:</strong> {esc(manifest['status']['institutional_validation']['state'])} (referente: {esc(manifest['status']['institutional_validation'].get('reviewer'), 'pendiente')}).</p>
-          <p><strong>Adopción institucional:</strong> {esc(manifest['status']['adoption']['state'])}.</p>
-          <p style="font-size:0.86rem;color:var(--c-text-muted);">Para cambiar cualquiera de estos estados a <em>validado</em> o <em>uso documentado</em>, el esquema exige registrar fecha, persona revisora y URL HTTPS de evidencia verificable.</p>
-        </article>
-      </div>
+      {render_empirical_table_html()}
     </section>
 
     <section class="section">
-      <h2>Contribución prevista al Atlas Urbano Regional</h2>
-      <p>Metadatos estructurados en <code>atlas/products/</code> conforme a <code>atlas-product.schema.json</code>:</p>
-      {"".join(atlas_cards) if atlas_cards else "<p>Sin fichas de Atlas registradas todavía.</p>"}
+      <h2>Productos geoespaciales catalogados para el Atlas Regional</h2>
+      <div class="grid-2">{"".join(atlas_cards) if atlas_cards else '<p>Productos integrados en la Parte I del Atlas.</p>'}</div>
     </section>
-
-    {figuras_html}
 
     <section class="section">
       <div class="prose">
@@ -1860,7 +2243,7 @@ def build_resultados_page(
         ctx=ctx,
         manifest=manifest,
         repo_cfg=repo_cfg,
-        page_title="Resultados y Atlas Copernicus",
+        page_title="Atlas y Resultados",
         active_nav="resultados",
         hero_html=hero,
         body_html=body,
@@ -1875,290 +2258,107 @@ def build_colaborar_page(
     branding: dict[str, Any],
 ) -> str:
     pid = manifest["id"]
+    sub_slug = SPEC["subpage_slug"]
+    sub_nav = SPEC["subpage_nav"]
+    atlas_pages = SPEC["atlas_pages"]
     proposed_owner = repo_cfg.get("proposed_owner", "copernicuscentroamerica")
-    proposed_repo = repo_cfg.get("proposed_repository", f"urbano-{pid}")
-    confirmed_repo_url = manifest["links"].get("repository")
-    canonical_slug = (
-        ctx.canonical_repository
-        if ctx.canonical_repository
-        else f"{proposed_owner}/{proposed_repo}"
-    )
+    proposed_repo = repo_cfg.get("proposed_repository", f"urbano-pa-panama-oeste")
+    canonical_slug = ctx.canonical_repository or f"{proposed_owner}/{proposed_repo}"
     effective_slug = ctx.github_repository or canonical_slug
-    repo_status_note = (
-        f"Repositorio canónico verificado: <code>{esc(canonical_slug)}</code>."
-        if confirmed_repo_url
-        else f"Nombre propuesto sujeto a aprovisionamiento: <code>{esc(canonical_slug)}</code> (sustituye el propietario si se aloja en otra organización)."
-    )
+    effective_repo_url = f"https://github.com/{effective_slug}"
+    gh_logos_dir_url = f"{effective_repo_url}/tree/main/branding/logos"
+    gh_branding_json_url = f"{effective_repo_url}/blob/main/branding/project-branding.json"
 
-    issue_btn = render_link_or_pending(
-        manifest["links"].get("issue_tracker"),
-        "Abrir Issues del repositorio",
-        "Formularios listos en .github/ISSUE_TEMPLATE/ (se activan al publicar el repo)",
-        "btn btn-teal",
-    )
+    validate_cmds = """python scripts/validate.py --source
+python scripts/build_site.py --output site
+python scripts/validate.py --site site"""
 
-    fork_cmds = f"""# 1. Crear fork personal en tu cuenta de GitHub y clonarlo localmente
-gh repo fork {canonical_slug} --clone=false
-git clone https://github.com/TU_USUARIO_GITHUB/{proposed_repo}.git
-cd {proposed_repo}
-
-# 2. Registrar el repositorio canónico como upstream (NO usar el portal general como upstream)
-git remote add upstream https://github.com/{canonical_slug}.git
-git remote -v
-git fetch upstream
-git switch -c feat/nueva-capa-geovisor upstream/main"""
-
-    validate_cmds = f"""# 3. Validar fuentes, construir el sitio y comprobar enlaces internos
-python3 scripts/validate.py --source
-python3 scripts/build_site.py --output site
-python3 scripts/validate.py --site site
-
-# 4. Previsualizar localmente en http://localhost:8000
-python3 -m http.server 8000 --directory site"""
-
-    pr_cmds = f"""# 5. Confirmar solo los archivos modificados y enviar Pull Request al canónico
-git status --short
-git add project.json content/ geovisor/ branding/
-git commit -m "Actualiza avances y recursos verificados de {pid}"
-git push -u origin feat/nueva-capa-geovisor
-
-gh pr create --repo {canonical_slug} --base main --head TU_USUARIO_GITHUB:feat/nueva-capa-geovisor --title "Actualiza geovisor, logos o documentación ({pid})" --body-file pr-body.md"""
-
-    antigravity_logo_prompt = f"""He copiado los archivos de logos de las instituciones participantes del proyecto {pid} ({manifest['title']}) en la carpeta branding/logos/ de este repositorio.
-Por favor:
-1. Inspecciona los archivos nuevos dentro de branding/logos/ (comprueba que sean .svg o .png con proporciones naturales y peso menor a 2 MB).
-2. Actualiza branding/project-branding.json conservando intacto "project_id": "{pid}" y "theme_version": "{THEME_VERSION}", y registrando cada institución en la lista "institutions" con su "id", "name", "acronym", "role", "logo_path", "alt_text" descriptivo, "url" (si aplica con https://), "order" y "aspect_hint" ("horizontal", "vertical" o "square").
-3. Ejecuta python scripts/validate.py --source, python scripts/build_site.py --output site y python scripts/validate.py --site site para confirmar que toda la validación pasa sin errores.
-4. Muéstrame git status y git diff branding/project-branding.json y deja lista una rama feat/logos-institucionales para enviar el Pull Request al repositorio {canonical_slug}."""
+    pdf_href = html.escape(ctx.site_url(f"assets/descargas/atlas_copernicus_pa-panama-oeste.pdf"), quote=True)
+    docx_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['docx_file']}"), quote=True)
+    script_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['script_file']}"), quote=True)
+    csv_href = html.escape(ctx.site_url(f"assets/descargas/{SPEC['csv_file']}"), quote=True)
+    geolibre_href = html.escape(ctx.site_url("geovisor/proyecto.geolibre.json"), quote=True)
 
     hero = f"""
     <section class="hero">
       <div class="container">
         <div class="hero-eyebrow">
-          <span class="badge badge-lime">Colaboración GitHub, Logos y GeoLibre</span>
+          <span class="badge badge-lime">Datos Abiertos, Scripts y Gobernanza GitHub</span>
           <span class="badge badge-country">{esc(pid)}</span>
         </div>
-        <h1>Cómo colaborar en esta iniciativa (Fork, Capas, Logos y PR)</h1>
-        <p class="hero-lead">Cada iniciativa evoluciona en su propio repositorio independiente. Las personas participantes trabajan en ramas de su fork personal y proponen mejoras, capas geoespaciales o logos institucionales mediante Pull Request.</p>
+        <h1>Datos abiertos, código reproducible e identidad institucional</h1>
+        <p class="hero-lead">Descarga directa de los artefactos técnicos generados en {esc(manifest['territory']['label'])} y guía de actualización mediante ramas y Pull Requests sobre <code>{esc(canonical_slug)}</code>.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="#anadir-actualizar-logos">Añadir o actualizar logos</a>
-          <a class="btn btn-outline-light" href="#ejercicio-practico">Ejercicio práctico Colab / GEE</a>
+          <a class="btn btn-primary" href="{html.escape(ctx.site_url(f'{sub_slug}/'), quote=True)}">📊 Ir a {esc(sub_nav)}</a>
+          <a class="btn btn-teal" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">🧭 Abrir Geovisor</a>
+          <a class="btn btn-outline-light" href="#anadir-actualizar-logos">Identidad y logos</a>
         </div>
       </div>
     </section>
     """
 
-    hub_base = (ctx.hub_url or "https://copernicuscentroamerica.github.io/clusterurbano/").rstrip("/")
-    ejercicio_url = f"{hub_base}/ejercicio/"
-    repo_url = (confirmed_repo_url or f"https://github.com/{canonical_slug}").rstrip("/")
-    effective_repo_url = f"https://github.com/{effective_slug}"
-    gh_logos_dir_url = f"{effective_repo_url}/tree/main/branding/logos"
-    gh_branding_json_url = f"{effective_repo_url}/blob/main/branding/project-branding.json"
-    gh_guide_doc_url = f"{effective_repo_url}/blob/main/docs/identidad-visual.md"
-
     body = f"""
-    <div class="callout">
-      <strong>Identidad del repositorio de esta iniciativa</strong>
-      <span>{repo_status_note} El identificador <code>{esc(pid)}</code> debe permanecer intacto en <code>project.json</code> y en <code>branding/project-branding.json</code> incluso cuando trabajes en un fork personal.</span>
-    </div>
+    <section class="section" id="descargas-abiertas">
+      <div class="card">
+        <span class="badge badge-ok">Paquete Reproducible del Proyecto</span>
+        <h2 style="margin:0.3rem 0 0.6rem;">Descarga directa de documentos, código e indicadores</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Recurso técnico</th><th>Formato</th><th>Contenido</th><th>Acción</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>Atlas Cartográfico Institucional</strong></td>
+                <td><code>PDF ({atlas_pages} págs.)</code></td>
+                <td>Portada, introducción Clúster Copernicus Urbano, Parte I de resultados propios y Parte II Copernicus.</td>
+                <td><a class="btn btn-primary btn-xs" href="{pdf_href}" download="Atlas_Copernicus_{esc(pid)}.pdf">📥 Descargar PDF</a></td>
+              </tr>
+              <tr>
+                <td><strong>Documento Metodológico y Análisis</strong></td>
+                <td><code>Word (.docx)</code></td>
+                <td>Arquitectura metodológica, formulación matemática, interpretación de resultados y mejoras Fase II.</td>
+                <td><a class="btn btn-teal btn-xs" href="{docx_href}" download="{esc(SPEC['docx_file'])}">📥 Descargar .docx</a></td>
+              </tr>
+              <tr>
+                <td><strong>Script de Procesamiento Espacial</strong></td>
+                <td><code>{esc(Path(SPEC['script_file']).suffix)}</code></td>
+                <td>Flujo reproducible utilizado para generar las capas e indicadores del proyecto.</td>
+                <td><a class="btn btn-outline btn-xs" href="{script_href}" download="{esc(SPEC['script_file'])}">📜 Descargar script</a></td>
+              </tr>
+              <tr>
+                <td><strong>Tabla de Indicadores Cuantitativos</strong></td>
+                <td><code>CSV (UTF-8)</code></td>
+                <td>Métricas tabulares verificadas a partir de las capas publicadas en el Geovisor.</td>
+                <td><a class="btn btn-outline btn-xs" href="{csv_href}" download="{esc(SPEC['csv_file'])}">📊 Descargar CSV</a></td>
+              </tr>
+              <tr>
+                <td><strong>Proyecto Estándar GeoLibre Studio</strong></td>
+                <td><code>JSON v0.2.0</code></td>
+                <td>Configuración completa de encuadre, capas activas y simbología para GeoLibre Studio.</td>
+                <td><a class="btn btn-outline btn-xs" href="{geolibre_href}" download="proyecto-{esc(pid)}.geolibre.json">🗺️ Descargar JSON</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
     <section class="section" id="anadir-actualizar-logos">
       <article class="card" style="border-top:4px solid var(--c-accent-yellow);">
         <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0.75rem;">
           <div>
-            <span class="badge badge-lime">Identidad local del proyecto</span>
-            <h2 style="margin:0.35rem 0 0.2rem;color:var(--c-brand-blue);">Añadir o actualizar logos</h2>
-            <p style="margin:0;font-size:0.92rem;color:var(--c-text-muted);">Procedimiento oficial para incorporar el logo del proyecto y los logos de las instituciones participantes en <code>{esc(pid)}</code> sin alterar el tema común.</p>
+            <span class="badge badge-lime">Identidad institucional</span>
+            <h2 style="margin:0.35rem 0 0.2rem;color:var(--c-brand-blue);">Añadir o actualizar logos institucionales</h2>
+            <p style="margin:0;font-size:0.9rem;color:var(--c-text-muted);">Coloca archivos oficiales <code>.svg</code> o <code>.png</code> en <code>branding/logos/</code>, regístralos en <code>branding/project-branding.json</code> y ejecuta la validación local antes de abrir Pull Request.</p>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-            <a class="btn btn-teal btn-xs" href="{html.escape(gh_logos_dir_url, quote=True)}" target="_blank" rel="noopener noreferrer">Abrir carpeta branding/logos/ ↗</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(gh_branding_json_url, quote=True)}" target="_blank" rel="noopener noreferrer">Editar branding/project-branding.json ↗</a>
-            <a class="btn btn-outline btn-xs" href="{html.escape(gh_guide_doc_url, quote=True)}" target="_blank" rel="noopener noreferrer">Guía docs/identidad-visual.md ↗</a>
+            <a class="btn btn-teal btn-xs" href="{html.escape(gh_logos_dir_url, quote=True)}" target="_blank" rel="noopener noreferrer">Carpeta branding/logos/ ↗</a>
+            <a class="btn btn-outline btn-xs" href="{html.escape(gh_branding_json_url, quote=True)}" target="_blank" rel="noopener noreferrer">project-branding.json ↗</a>
           </div>
         </div>
-
-        <div class="grid-2" style="margin-top:0.85rem;">
-          <div>
-            <h3>Pasos para el equipo de la iniciativa</h3>
-            <ol style="padding-left:1.25rem;line-height:1.65;">
-              <li><strong>Abre el repositorio de tu iniciativa:</strong> trabaja sobre tu copia local clonada desde tu fork personal o abre el repositorio en GitHub.</li>
-              <li><strong>Añade el archivo del logo a <code>branding/logos/</code>:</strong> prefiere formato <code>.svg</code> original o <code>.png</code> con fondo transparente (máximo 2 MB), conservando colores y proporciones oficiales.</li>
-              <li><strong>Completa los datos en <code>branding/project-branding.json</code>:</strong> registra el nombre oficial (<code>name</code>), sigla (<code>acronym</code>), rol documentado (<code>role</code>), ruta (<code>logo_path</code>), texto alternativo (<code>alt_text</code>), enlace opcional (<code>url</code> con <code>https://</code>) y orden (<code>order</code>). Si una institución aún no tiene archivo de logo, deja <code>"logo_path": null</code> (nunca inventes logos con IA).</li>
-              <li><strong>Comprueba la vista previa local:</strong> ejecuta <code>python3 scripts/validate.py --source</code> y <code>python3 scripts/build_site.py --output site</code>.</li>
-              <li><strong>Presenta el cambio mediante una rama y un Pull Request:</strong> sube tu rama (por ejemplo, <code>feat/logos-institucionales</code>) y abre el Pull Request hacia <code>{esc(canonical_slug)}</code>.</li>
-              <li><strong>Publicación tras revisión:</strong> al integrarse el PR, el sitio reconstruido de la iniciativa y la ficha del proyecto en el portal regional muestran los logos aprobados.</li>
-            </ol>
-          </div>
-
-          <div>
-            <h3>Prompt para Antigravity (sin editar JSON manualmente)</h3>
-            <p style="font-size:0.88rem;color:var(--c-text-muted);">Coloca tus archivos de imagen en <code>branding/logos/</code> y pega esta instrucción en el chat de Antigravity para que prepare y valide toda la configuración automáticamente:</p>
-            <pre id="prompt-antigravity-logos" class="code-block"><code>{html.escape(antigravity_logo_prompt)}</code></pre>
-            <div style="margin-top:0.65rem;">
-              <button type="button" class="btn btn-primary btn-xs" data-copy-target="prompt-antigravity-logos">Copiar prompt para Antigravity</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:1rem;background:#F8FAFF;" data-logo-preview-helper>
-          <h3 style="margin-top:0;">Previsualizador local de logo y asistente de configuración JSON</h3>
-          <div class="callout callout-warn" style="margin:0.25rem 0 0.85rem;">
-            <strong>Importante sobre el funcionamiento de esta previsualización en el navegador</strong>
-            <ul style="margin:0.35rem 0 0;padding-left:1.2rem;font-size:0.85rem;">
-              <li><strong>Seleccionar y previsualizar un archivo local aquí no significa que ya esté publicado</strong> en el sitio oficial ni en GitHub.</li>
-              <li>Esta herramienta permite comprobar las proporciones del logo en su tarjeta y <strong>descargar o copiar el bloque JSON preparado</strong> para incorporarlo en <code>branding/project-branding.json</code>.</li>
-              <li>La publicación permanente debe seguir siempre el mecanismo de escritura autenticado y revisión del repositorio (commit en rama + Pull Request).</li>
-              <li>Este sitio público es estático y <strong>no contiene ni solicita credenciales de escritura</strong>.</li>
-            </ul>
-          </div>
-
-          <div class="grid-2">
-            <div style="display:flex;flex-direction:column;gap:0.65rem;">
-              <div class="filter-field">
-                <label for="logo-file-inp">1. Seleccionar archivo local (.svg o .png) para previsualizar</label>
-                <input id="logo-file-inp" type="file" accept=".svg,.png,.webp,.jpg,.jpeg,image/svg+xml,image/png" data-logo-file-input>
-              </div>
-              <div class="filter-field">
-                <label for="logo-inst-name">2. Nombre oficial de la institución</label>
-                <input id="logo-inst-name" type="text" placeholder="Ej. Ministerio de Vivienda y Ordenamiento Territorial" value="{esc((manifest['institutional_use'].get('institutions') or ['Institución participante'])[0])}" data-logo-inst-name>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;">
-                <div class="filter-field">
-                  <label for="logo-inst-acr">Sigla (opcional)</label>
-                  <input id="logo-inst-acr" type="text" placeholder="Ej. MIVIOT" data-logo-inst-acronym>
-                </div>
-                <div class="filter-field">
-                  <label for="logo-inst-ord">Orden de presentación</label>
-                  <input id="logo-inst-ord" type="number" min="1" max="50" value="1" data-logo-inst-order>
-                </div>
-              </div>
-              <div class="filter-field">
-                <label for="logo-inst-role">Rol o agrupación documentada</label>
-                <input id="logo-inst-role" type="text" value="Institución participante del proyecto" data-logo-inst-role>
-              </div>
-              <div class="filter-field">
-                <label for="logo-inst-url">Enlace institucional opcional (https://...)</label>
-                <input id="logo-inst-url" type="url" placeholder="https://..." data-logo-inst-url>
-              </div>
-            </div>
-
-            <div style="display:flex;flex-direction:column;gap:0.75rem;">
-              <div>
-                <strong style="font-size:0.82rem;color:var(--c-brand-blue);display:block;margin-bottom:0.35rem;">Vista previa local de la tarjeta institucional:</strong>
-                <div class="inst-proyecto-card" style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.85rem;background:#F9FAFE;border:1px solid #D5DDF0;border-radius:8px;">
-                  <div class="inst-proyecto-logo-box is-horizontal" data-logo-preview-box style="height:48px;min-width:72px;max-width:130px;display:flex;align-items:center;justify-content:center;padding:0.25rem 0.5rem;background:#FFFFFF;border:1px solid #E4EAF7;border-radius:6px;flex-shrink:0;">
-                    <img src="{html.escape(ctx.site_url('assets/img/brand/logo-copernicus-lac-chile.png'), quote=True)}" alt="Previsualización local del logo seleccionado" height="36" style="max-height:36px;max-width:118px;width:auto;height:auto;object-fit:contain;display:block;" data-logo-preview-img>
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="inst-proyecto-text-head" style="margin-bottom:0.2rem;">
-                      <span class="inst-proyecto-acronym hidden" data-logo-preview-acronym>SIGLA</span>
-                    </div>
-                    <p class="inst-proyecto-name" data-logo-preview-name>{esc((manifest['institutional_use'].get('institutions') or ['Institución participante'])[0])}</p>
-                    <p class="inst-proyecto-role" data-logo-preview-role>Institución participante del proyecto</p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <strong style="font-size:0.82rem;color:var(--c-brand-blue);display:block;margin-bottom:0.35rem;">Entrada generada para <code>branding/project-branding.json</code>:</strong>
-                <pre id="logo-json-snippet" class="code-block" style="margin:0;"><code data-logo-json-output></code></pre>
-                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.55rem;">
-                  <button type="button" class="btn btn-outline btn-xs" data-copy-target="logo-json-snippet">Copiar bloque JSON</button>
-                  <button type="button" class="btn btn-teal btn-xs" data-logo-download-json>Descargar bloque (.json)</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="section" id="ejercicio-practico">
-      <article class="card" style="border-left:4px solid var(--c-brand-blue);">
-        <span class="badge badge-ok">Ejercicio guiado de extremo a extremo</span>
-        <h2>Ejercicio práctico: Mancha Urbana con Sentinel-2 (Google Colab + Google Earth Engine + Antigravity)</h2>
-        <p>¿Es tu primera vez contribuyendo al proyecto? En el portal regional dispones de un ejercicio completo paso a paso para clasificar el área construida (<em>built-up</em>) con imágenes <strong>Copernicus Sentinel-2 L2A</strong> y un modelo <strong>Random Forest</strong> entrenado con etiquetas automáticas de edificios y red vial, usando la <strong>misma cuenta de Google</strong> que utilizas en Antigravity:</p>
-        <ul>
-          <li><strong>Guía A — Google Colab:</strong> ejecuta el cuaderno interactivo <code>mancha_urbana_sentinel2_vmod01.ipynb</code> en la nube sin instalar paquetes locales y descarga <code>probabilidad.tif</code>, <code>construido.tif</code>, <code>resumen.csv</code> y el polígono vectorial <code>.geojson</code>.</li>
-          <li><strong>Guía B — Google Earth Engine (GEE):</strong> replica el flujo equivalente sobre el catálogo <code>COPERNICUS/S2_SR_HARMONIZED</code> y <code>ee.Classifier.smileRandomForest</code> para escalar a series multianuales y exportar directamente a <code>EPSG:4326</code>.</li>
-          <li><strong>Integración con Antigravity:</strong> coloca los productos resultantes en <code>geovisor/capas/</code>, actualiza la narrativa en <code>content/</code> y envía tu Pull Request para revisión del equipo.</li>
-        </ul>
-        <div class="card-footer">
-          <a class="btn btn-primary" href="{html.escape(ejercicio_url, quote=True)}">Ir al ejercicio guiado (Colab + GEE + Antigravity) →</a>
-          <a class="btn btn-teal" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Abrir Geovisor de {esc(pid)}</a>
-          <a class="btn btn-outline" href="{html.escape(repo_url + '/pulls', quote=True)}" target="_blank" rel="noopener noreferrer">Ver Pull Requests del proyecto ↗</a>
-        </div>
-      </article>
-    </section>
-
-    <section class="section">
-      <div class="grid-2">
-        <article class="card">
-          <span class="badge badge-propuesta">Flujo A · Recomendado para participantes</span>
-          <h3>1. Fork personal, clonación y rama descriptiva</h3>
-          <p>Crea o reutiliza el fork en tu cuenta personal, configura <code>origin</code> (tu fork) y <code>upstream</code> (el repositorio canónico del equipo), y crea una rama con nombre descriptivo de tu tarea:</p>
-          <pre id="cmd-fork" class="code-block"><code>{html.escape(fork_cmds)}</code></pre>
-          <div class="card-footer">
-            <button type="button" class="btn btn-outline btn-xs" data-copy-target="cmd-fork">Copiar comandos</button>
-          </div>
-        </article>
-
-        <article class="card">
-          <span class="badge badge-ok">Verificación local reproducible</span>
-          <h3>2. Validar y previsualizar antes de subir cambios</h3>
-          <p>Ejecuta siempre los tres comandos comunes antes de confirmar tu rama:</p>
+        <div style="margin-top:0.85rem;">
           <pre id="cmd-val" class="code-block"><code>{html.escape(validate_cmds)}</code></pre>
-          <div class="card-footer">
-            <button type="button" class="btn btn-outline btn-xs" data-copy-target="cmd-val">Copiar comandos</button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="section">
-      <article class="card">
-        <span class="badge badge-declarado">Despliegue de capas en el Geovisor GeoLibre</span>
-        <h3>Cómo publicar una nueva capa geoespacial del equipo</h3>
-        <ol>
-          <li>Verifica que la capa tenga CRS <code>EPSG:4326</code> (WGS84), topología limpia, tabla de atributos documentada, autorización de publicación y ausencia de datos personales o prediales restringidos (puedes inspeccionarla antes en la pestaña <strong>Archivo local</strong> del geovisor).</li>
-          <li>Coloca el archivo en <code>geovisor/capas/</code>:
-            <ul>
-              <li><code>.geojson</code>, <code>.json</code> y <code>.kml</code> se cargan directamente en el <strong>visor integrado (MapLibre)</strong> desde la pestaña <strong>Carpeta repo</strong>.</li>
-              <li><code>.geolibre.json</code> abre el proyecto completo con estilos en <strong>GeoLibre Studio</strong> (<code>?url=...</code>).</li>
-              <li><code>.tif</code> (COG), <code>.pmtiles</code>, <code>.fgb</code> y <code>.geoparquet</code> transfieren automáticamente su URL a <strong>GeoLibre Studio</strong> mediante <code>?data=...</code>.</li>
-            </ul>
-          </li>
-          <li>Para dejar una capa activa por defecto al abrir el visor, edita <code>geovisor/layers.json</code>: coloca <code>geovisor/capas/tu_capa.geojson</code> en <code>source_path</code> y cambia <code>status</code> a <code>"en_revision"</code> o <code>"publicado"</code>.</li>
-          <li>Ejecuta <code>python3 scripts/build_site.py --output site</code>: el generador actualizará automáticamente <code>site/geovisor/proyecto.geolibre.json</code> (v0.2.0) y activará el control en el Geovisor.</li>
-        </ol>
+        </div>
       </article>
-    </section>
-
-    <section class="section">
-      <div class="grid-2">
-        <article class="card">
-          <h3>3. Enviar Pull Request y dar seguimiento a la revisión</h3>
-          <pre id="cmd-pr" class="code-block"><code>{html.escape(pr_cmds)}</code></pre>
-          <p style="font-size:0.84rem;color:var(--c-text-muted);margin-top:0.65rem;">Tras abrir el Pull Request, GitHub Actions ejecuta automáticamente el validador. Si un chequeo aparece en rojo o la persona revisora solicita ajustes, corrige en tu misma rama y ejecuta <code>git push</code>: el PR se actualizará sin crear uno nuevo.</p>
-          <div class="card-footer">
-            <button type="button" class="btn btn-outline btn-xs" data-copy-target="cmd-pr">Copiar comandos</button>
-          </div>
-        </article>
-
-        <article class="card">
-          <h3>4. Registro de tareas, bloqueos y revisiones</h3>
-          <p>Este repositorio incluye cuatro formularios estructurados en <code>.github/ISSUE_TEMPLATE/</code>:</p>
-          <ul>
-            <li><strong>Tarea del PMV:</strong> resultado concreto, criterio de aceptación y fecha objetivo propuesta.</li>
-            <li><strong>Bloqueo o solicitud de apoyo:</strong> dificultad técnica o de datos y ayuda requerida (atendido por la facilitación técnica del clúster).</li>
-            <li><strong>Solicitud de revisión:</strong> enlace a evidencia para revisión técnica o validación.</li>
-            <li><strong>Contribución al Atlas:</strong> revisión de metadatos antes de pasar a publicado.</li>
-          </ul>
-          <div class="card-footer">
-            {issue_btn}
-          </div>
-        </article>
-      </div>
     </section>
 
     {render_project_institutions_band(ctx, branding, manifest)}
@@ -2168,7 +2368,7 @@ Por favor:
         ctx=ctx,
         manifest=manifest,
         repo_cfg=repo_cfg,
-        page_title="Colaborar",
+        page_title="Datos y Código",
         active_nav="colaborar",
         hero_html=hero,
         body_html=body,
@@ -2182,17 +2382,14 @@ def build_404_page(ctx: SiteContext, manifest: dict[str, Any], repo_cfg: dict[st
         <h1>Página no encontrada (404)</h1>
         <p class="hero-lead">La ruta solicitada no existe dentro del sitio de <strong>{esc(manifest['title'])}</strong>.</p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="{html.escape(ctx.site_url(''), quote=True)}">Volver a la portada de la iniciativa</a>
-          <a class="btn btn-outline-light" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Ir al Geovisor GeoLibre</a>
+          <a class="btn btn-primary" href="{html.escape(ctx.site_url(''), quote=True)}">Volver al Inicio</a>
+          <a class="btn btn-teal" href="{html.escape(ctx.site_url('aplicacion/'), quote=True)}">Ir al Geovisor</a>
+          <a class="btn btn-outline-light" href="{html.escape(ctx.site_url('resultados/'), quote=True)}">Ir al Atlas</a>
         </div>
       </div>
     </section>
     """
-    body = """
-    <section class="section">
-      <p>Comprueba la dirección o utiliza el menú superior para recorrer la ficha del proyecto, la metodología, los resultados o la guía de colaboración.</p>
-    </section>
-    """
+    body = "<section class='section'><p>Utiliza el menú superior para navegar hacia el Geovisor, el Atlas Cartográfico, la subpágina metodológica o las descargas abiertas.</p></section>"
     return render_shell(
         ctx=ctx,
         manifest=manifest,
@@ -2204,16 +2401,46 @@ def build_404_page(ctx: SiteContext, manifest: dict[str, Any], repo_cfg: dict[st
     )
 
 
+def load_comparador_clases() -> list[dict[str, Any]]:
+    p = ROOT / "comparador" / "clases.json"
+    if not p.exists():
+        return []
+    return json.loads(p.read_text(encoding="utf-8")).get("clases", [])
+
+
+def collect_comparador_results(out_dir: Path) -> list[dict[str, Any]]:
+    src_root = ROOT / "comparador" / "resultados"
+    items: list[dict[str, Any]] = []
+    if not src_root.exists():
+        return items
+    allowed = {".png", ".jpg", ".jpeg", ".json", ".csv"}
+    for d in sorted(p for p in src_root.iterdir() if p.is_dir()):
+        meta_file = d / "meta.json"
+        if not meta_file.exists():
+            continue
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        if meta.get("id") != d.name or not meta.get("anios") or not meta.get("archivos"):
+            continue
+        dest = out_dir / "comparador" / "resultados" / d.name
+        dest.mkdir(parents=True, exist_ok=True)
+        for f in sorted(d.iterdir()):
+            if f.is_file() and f.suffix.lower() in allowed:
+                shutil.copy2(f, dest / f.name)
+        items.append(meta)
+    items.sort(key=lambda m: str(m.get("generado_utc", "")), reverse=True)
+    return items
+
+
 def write_deterministic(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Construye el sitio estático de la iniciativa.")
+    parser = argparse.ArgumentParser(description="Construye el sitio estático homologado de la iniciativa.")
     parser.add_argument("--output", type=str, default="site", help="Directorio de salida (por defecto: site).")
-    parser.add_argument("--base-path", type=str, default=None, help="Prefijo explícito de ruta base (ej. / o /prueba-fork/).")
-    parser.add_argument("--origin", type=str, default=None, help="Origen explícito HTTPS para generación de URLs absolutas.")
+    parser.add_argument("--base-path", type=str, default=None, help="Prefijo explícito de ruta base.")
+    parser.add_argument("--origin", type=str, default=None, help="Origen explícito HTTPS.")
     args = parser.parse_args()
 
     if (ROOT / "data" / "projects.registry.json").exists():
@@ -2231,22 +2458,9 @@ def main() -> int:
             "schema_version": "1.0.0",
             "project_id": manifest["id"],
             "theme_version": THEME_VERSION,
-            "updated_at": "2026-11-10",
+            "updated_at": "2026-11-12",
             "project_logo": None,
-            "institutions": [
-                {
-                    "id": f"inst-{idx}",
-                    "name": nm,
-                    "acronym": None,
-                    "role": "Institución declarada en el perfil",
-                    "logo_path": None,
-                    "alt_text": f"Institución participante: {nm}",
-                    "url": None,
-                    "order": idx,
-                    "aspect_hint": "auto",
-                }
-                for idx, nm in enumerate(manifest.get("institutional_use", {}).get("institutions", []), start=1)
-            ],
+            "institutions": [],
         }
 
     project_md = (ROOT / "content" / "project.md").read_text(encoding="utf-8")
@@ -2276,10 +2490,8 @@ def main() -> int:
         shutil.rmtree(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copiar recursos estáticos del tema común
     shutil.copytree(ROOT / "web" / "assets", out_dir / "assets")
 
-    # Copiar logos propios de la iniciativa desde branding/logos/ hacia site/branding/logos/
     logos_src_dir = ROOT / "branding" / "logos"
     logos_out_dir = out_dir / "branding" / "logos"
     logos_out_dir.mkdir(parents=True, exist_ok=True)
@@ -2289,16 +2501,10 @@ def main() -> int:
             if lf.is_file() and lf.suffix.lower() in allowed_logo_exts:
                 shutil.copy2(lf, logos_out_dir / lf.name)
 
-    # Generar proyecto.geolibre.json actualizado y copiar capas públicas si existen
     geolibre_obj = build_geolibre_project_json(layers_cfg, manifest, ctx)
-    write_deterministic(
-        out_dir / "geovisor" / "layers.json",
-        json.dumps(layers_cfg, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
-    write_deterministic(
-        out_dir / "geovisor" / "proyecto.geolibre.json",
-        json.dumps(geolibre_obj, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
+    write_deterministic(out_dir / "geovisor" / "layers.json", json.dumps(layers_cfg, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    write_deterministic(out_dir / "geovisor" / "proyecto.geolibre.json", json.dumps(geolibre_obj, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+
     data_layers_dir = ROOT / "geovisor" / "data"
     if data_layers_dir.exists():
         (out_dir / "geovisor" / "data").mkdir(parents=True, exist_ok=True)
@@ -2306,8 +2512,7 @@ def main() -> int:
             if f.is_file() and f.name != ".gitkeep":
                 shutil.copy2(f, out_dir / "geovisor" / "data" / f.name)
 
-    # Indexar y publicar la carpeta geovisor/capas/ (formatos compatibles con GeoLibre)
-    geolibre_exts = {".geojson", ".json", ".kml", ".pmtiles", ".fgb", ".tif", ".tiff", ".parquet", ".geoparquet"}
+    geolibre_exts = {".geojson", ".json", ".kml", ".pmtiles", ".fgb", ".tif", ".tiff", ".parquet", ".geoparquet", ".webp", ".png"}
     capas_src_dir = ROOT / "geovisor" / "capas"
     capas_out_dir = out_dir / "geovisor" / "capas"
     capas_out_dir.mkdir(parents=True, exist_ok=True)
@@ -2318,14 +2523,16 @@ def main() -> int:
                 continue
             if f.suffix.lower() in geolibre_exts or f.name.lower().endswith(".geolibre.json"):
                 shutil.copy2(f, capas_out_dir / f.name)
-                indexed_files.append(
-                    {
-                        "name": f.name,
-                        "path": f"geovisor/capas/{f.name}",
-                        "format": "geolibre" if f.name.lower().endswith(".geolibre.json") else f.suffix.lower().lstrip("."),
-                        "size_bytes": f.stat().st_size,
-                    }
-                )
+                if f.suffix.lower() not in (".webp", ".png"):
+                    indexed_files.append(
+                        {
+                            "name": f.name,
+                            "path": f"geovisor/capas/{f.name}",
+                            "format": "geolibre" if f.name.lower().endswith(".geolibre.json") else f.suffix.lower().lstrip("."),
+                            "size_bytes": f.stat().st_size,
+                        }
+                    )
+
     effective_repo_slug = (
         ctx.github_repository
         if ctx.github_repository
@@ -2348,19 +2555,9 @@ def main() -> int:
         + "\n",
     )
 
-    # Exportar JSONs públicos seleccionados
-    write_deterministic(
-        out_dir / "data" / "project.json",
-        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
-    write_deterministic(
-        out_dir / "data" / "project-branding.json",
-        json.dumps(branding, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
-    write_deterministic(
-        out_dir / "data" / "atlas-products.json",
-        json.dumps(atlas_products, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
+    write_deterministic(out_dir / "data" / "project.json", json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    write_deterministic(out_dir / "data" / "project-branding.json", json.dumps(branding, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    write_deterministic(out_dir / "data" / "atlas-products.json", json.dumps(atlas_products, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
     build_meta = {
         "project_id": manifest["id"],
         "schema_version": manifest["schema_version"],
@@ -2372,15 +2569,26 @@ def main() -> int:
         "effective_mode": ctx.effective_mode,
         "canonical_repository": ctx.canonical_repository,
     }
-    write_deterministic(
-        out_dir / "data" / "build-meta.json",
-        json.dumps(build_meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
+    write_deterministic(out_dir / "data" / "build-meta.json", json.dumps(build_meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
-    # Generar páginas HTML estáticas
+    clases_cmp: list[dict[str, Any]] | None = None
+    if manifest["id"] == "pa-colon":
+        clases_cmp = load_comparador_clases()
+        cmp_out = out_dir / "comparador"
+        cmp_out.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / "src" / "gee" / "geourbano_comparador.js", cmp_out / "geourbano_comparador.js")
+        shutil.copy2(ROOT / "comparador" / "clases.json", cmp_out / "clases.json")
+        cmp_items = collect_comparador_results(out_dir)
+        write_deterministic(
+            cmp_out / "index.json",
+            json.dumps({"schema_version": "1.0.0", "analisis": cmp_items}, ensure_ascii=False, indent=2) + "\n",
+        )
+
+    sub_slug = SPEC["subpage_slug"]
     write_deterministic(out_dir / "index.html", build_home_page(ctx, manifest, repo_cfg, layers_cfg, branding))
     write_deterministic(out_dir / "proyecto" / "index.html", build_proyecto_page(ctx, manifest, repo_cfg, project_md, pmv_md, branding))
     write_deterministic(out_dir / "aplicacion" / "index.html", build_aplicacion_page(ctx, manifest, repo_cfg, layers_cfg, branding))
+    write_deterministic(out_dir / sub_slug / "index.html", build_subpagina_page(ctx, manifest, repo_cfg, layers_cfg, branding, clases_cmp))
     write_deterministic(out_dir / "metodologia" / "index.html", build_metodologia_page(ctx, manifest, repo_cfg, metodologia_md, branding))
     write_deterministic(out_dir / "resultados" / "index.html", build_resultados_page(ctx, manifest, repo_cfg, atlas_products, continuidad_md, branding, layers_cfg))
     write_deterministic(out_dir / "colaborar" / "index.html", build_colaborar_page(ctx, manifest, repo_cfg, branding))

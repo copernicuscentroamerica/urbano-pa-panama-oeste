@@ -372,6 +372,7 @@ def validate_site(site_dir: Path) -> list[str]:
         "404.html",
         "proyecto/index.html",
         "aplicacion/index.html",
+        "modelo-ocupacion/index.html",
         "metodologia/index.html",
         "resultados/index.html",
         "colaborar/index.html",

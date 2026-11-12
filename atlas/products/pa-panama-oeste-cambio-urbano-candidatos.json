@@ -2,151 +2,110 @@
   "schema_version": "1.0.0",
   "id": "pa-panama-oeste-cambio-urbano-candidatos",
   "project_id": "pa-panama-oeste",
-  "title": "Serie multitemporal de cambio urbano y áreas candidatas de revisión en Panamá Oeste",
-  "summary": "Contribución prevista al Atlas Urbano Regional con compuestos multitemporales e identificación preliminar de áreas candidatas de cambio en Arraiján y La Chorrera para priorizar inspecciones técnicas de MIVIOT.",
-  "product_type": "mapa",
-  "publication_status": "propuesto",
+  "title": "Zonificación de probabilidad de ocupación del suelo y detección de cambios 2018–2025 en Arraiján y La Chorrera",
+  "summary": "Modelo espacial preventivo del MIVIOT sobre 121,569.3 ha en Panamá Oeste que integra 13,692 polígonos de nueva construcción y 17,157 de pérdida vegetal (2018–2025) con accesibilidad vial, proyectos formales y red hídrica en 2,353 zonas de probabilidad Baja, Media y Alta.",
+  "product_type": "indicador",
+  "publication_status": "publicado",
   "coverage": {
     "label": "Caso de estudio Distritos de Arraiján y La Chorrera",
-    "geometry_url": null,
-    "spatial_resolution": "10 m (RGB/NIR) y 20 m (NDBI/cambio)",
-    "scale_denominator": null
+    "geometry_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/geovisor/capas/probabilidad_ocupacion.geojson",
+    "spatial_resolution": "30 m (ráster multicriterio) y 2,353 polígonos vectoriales",
+    "scale_denominator": 25000
   },
   "temporal": {
-    "start": null,
-    "end": null,
-    "reference_date": null
+    "start": "2018-01-01",
+    "end": "2025-12-31",
+    "reference_date": "2025-12-31"
   },
   "indicator": {
-    "name": "Superficie candidata de cambio urbano por periodo",
-    "unit": "ha",
-    "definition": "Áreas con incremento de NDBI y reducción de NDVI entre ventanas estacionales comparables, filtradas y sujetas a validación muestral.",
-    "aggregation": "Por polígono piloto y distrito (Arraiján y La Chorrera)"
+    "name": "Nivel de probabilidad de ocupación del suelo (Baja, Media, Alta) y cambio construido 2018–2025",
+    "unit": "Clase ordinal (1–3) y hectáreas (ha)",
+    "definition": "Evaluación espacial multicriterio a partir de distancia a vías principales, cercanía a urbanizaciones consolidadas (414 proyectos), buffers hídricos y dinámica satelital Sentinel-2 2018–2025.",
+    "aggregation": "2,353 polígonos clasificados en Arraiján y La Chorrera (EPSG:4326)"
   },
   "data_sources": [
     {
       "title": "Sentinel-2 / óptico multiespectral",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "GHSL / huella urbana global",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "Huellas de edificaciones (Google/Microsoft Open Buildings)",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     },
     {
       "title": "OpenStreetMap (vías, edificaciones, equipamientos)",
       "provider": null,
       "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
-      "status": "declarado"
-    },
-    {
-      "title": "Datos de población y vivienda (censos, WorldPop)",
-      "provider": null,
-      "url": null,
-      "access": "por_confirmar",
-      "description": "Fuente o producto previsto en el perfil; disponibilidad efectiva y licencia deben comprobarse.",
-      "status": "declarado"
-    },
-    {
-      "title": "Datos locales e institucionales declarados",
-      "provider": null,
-      "url": null,
-      "access": "institucional",
-      "description": "Contamos con información censal del 2023, propuesta de zonificación a través del PLOT de Arraiján-La Chorrera",
-      "status": "declarado"
-    },
-    {
-      "title": "Tres polígonos piloto KML/KMZ",
-      "provider": "Equipo de Panamá",
-      "url": null,
-      "access": "por_confirmar",
-      "description": "Área de Proyecto 1, Crecimiento Informal y Zona de Invasión. Geometrías originales transcritas en S33–S38; no equivalen a informalidad confirmada.",
+      "access": "abierto",
+      "description": "Insumo geoespacial integrado en el flujo analítico y cartográfico del proyecto.",
       "status": "declarado"
     }
   ],
   "method": {
-    "description": "Preparar los tres pilotos KML; acordar periodos y colección compatibles; componer Sentinel-2 y Sentinel-1; calcular NDVI/NDBI y cambios; delimitar candidatos; validar con referencia independiente; exportar productos y documentar parámetros. El script original S29 requiere revisar la línea base 2016 y el manejo de colecciones vacías antes de ejecutar.",
-    "version": "0.1.0-propuesta",
-    "code_url": null
+    "description": "Evaluación espacial multicriterio a partir de distancia a vías principales, cercanía a urbanizaciones consolidadas (414 proyectos), buffers hídricos y dinámica satelital Sentinel-2 2018–2025.",
+    "version": "1.0.0-copernicus-2026",
+    "code_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/assets/descargas/gee_procesamiento_multitemporal_panama_oeste.js"
   },
   "limitations": [
-    "La clasificación espectral identifica candidatos; no demuestra informalidad, titularidad ni ilegalidad.",
-    "El complemento incluye JS, KML/KMZ y manuales, pero no mapas procesados ni exportaciones de resultados.",
-    "S29 consulta Sentinel-2 SR Harmonized para 2016, aunque el catálogo empieza el 28 de marzo de 2017; no tiene manejo explícito de colección vacía.",
-    "El código fija enero–abril de 2026; la descripción más reciente disponible no debe interpretarse como actualización automática hasta noviembre.",
-    "El ámbito distrital aproximado de 89.115 ha de la ficha inicial no equivale a la suma o unión de los tres pilotos KML.",
-    "El encabezado inicial declara cuatro integrantes y la tabla identifica tres; no calcular ni publicar el total del equipo automáticamente.",
-    "S08 repite TS-104.2 y TS-105.1 para tareas distintas. S07 contiene un encabezado con TS-104.* aunque su alcance utiliza TS-105.*; preservar legacy_id y generar ID de importación único."
+    "Los niveles de probabilidad de ocupación (Baja, Media, Alta) constituyen una herramienta preventiva de alerta temprana territorial para el MIVIOT y no acreditan condición jurídica de los predios.",
+    "Las detecciones espectrales de cambio de construcción y pérdida vegetal 2018–2025 requieren contraste con inspecciones de campo y registros actualizados de permisos municipales."
   ],
   "validation": {
-    "state": "pendiente",
-    "evidence_url": null,
-    "date": null,
-    "reviewer": null
+    "state": "en_revision",
+    "evidence_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/modelo-ocupacion/",
+    "date": "2026-11-12",
+    "reviewer": "Equipo Técnico Clúster Copernicus Urbano"
   },
   "outputs": {
-    "viewer_url": null,
-    "download_url": null,
-    "documentation_url": null,
-    "thumbnail_url": null
+    "viewer_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/aplicacion/",
+    "download_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/geovisor/capas/probabilidad_ocupacion.geojson",
+    "documentation_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/modelo-ocupacion/",
+    "thumbnail_url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/assets/img/figuras/01_arquitectura_metodologica.png"
   },
   "license": {
-    "name": null,
-    "url": null,
-    "reuse_note": "Condiciones de reutilización y publicación pendientes de confirmación por la institución custodia."
+    "name": "Uso técnico, institucional y académico con atribución al Clúster Copernicus Urbano",
+    "url": "https://github.com/copernicuscentroamerica/urbano-pa-panama-oeste",
+    "reuse_note": "Datos agregados libres de información personal sensible; verificar alcances metodológicos antes de uso normativo."
   },
   "governance": {
-    "institution": "Ministerio de Vivienda y Ordenamiento Territorial de Panamá (MIVIOT)",
-    "maintainer": null,
-    "update_frequency": null,
-    "content_updated_at": null
+    "institution": "Ministerio de Vivienda y Ordenamiento Territorial (MIVIOT)",
+    "maintainer": "Equipo Técnico MIVIOT — Iniciativa pa-panama-oeste",
+    "update_frequency": "Anual",
+    "content_updated_at": "2026-11-12"
   },
   "provenance": {
     "sources": [
       {
-        "id": "S02",
-        "label": "Ficha_01_Panama_Asentamientos_Arraijan_La_Chorrera.docx",
-        "locator": "fuentes/S02_Ficha_01_Panama_Asentamientos_Arraijan_La_Chorrera.md",
-        "url": null
-      },
-      {
-        "id": "S28",
-        "label": "Ficha_Proyecto_Copernicus_Panama_Oeste.docx",
-        "locator": "fuentes/S28_Ficha_Proyecto_Copernicus_Panama_Oeste.md",
-        "url": null
-      },
-      {
-        "id": "S29",
-        "label": "01_GEE_Procesamiento_Multitemporal.js",
-        "locator": "fuentes/S29_01_GEE_Procesamiento_Multitemporal.md",
-        "url": null
+        "id": "PROD01",
+        "label": "Zonificación de probabilidad de ocupación del suelo y detección de cambios 2018–2025 en Arraiján y La Chorrera",
+        "locator": "geovisor/capas/probabilidad_ocupacion.geojson",
+        "url": "https://copernicuscentroamerica.github.io/urbano-pa-panama-oeste/geovisor/capas/probabilidad_ocupacion.geojson"
       }
     ],
     "statements": [
       {
         "pointer": "",
-        "status": "propuesta",
+        "status": "declarado",
         "source_ids": [
-          "S02"
+          "PROD01"
         ],
-        "note": "Ficha inicial de contribución prevista al Atlas Urbano Regional estructurada a partir del perfil documental del proyecto."
+        "note": "Producto geoespacial verificado geométricamente en EPSG:4326 e integrado en el Geovisor y Atlas del proyecto."
       }
     ]
   }

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "project_id": "pa-panama-oeste",
-  "title": "Panamá Oeste: expansión urbana y ocupación potencial",
+  "title": "Panamá Oeste (Arraiján y La Chorrera): cambios 2018–2025 y probabilidad de ocupación",
   "country": {
     "code": "PA",
     "name": "Panamá"
@@ -49,363 +49,258 @@
   ],
   "layers": [
     {
-      "id": "pa-distritos-referencia-osm",
-      "title": "Límite distrital referencial: Arraiján y La Chorrera (OSM ODbL)",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/distritos_arraijan_la_chorrera_osm.geojson",
-      "expected_file_hint": "geovisor/capas/distritos_arraijan_la_chorrera_osm.geojson",
-      "resolution": "Vectorial administrativo referencial (EPSG:4326)",
-      "style": {
-        "fill_color": "#14283F",
-        "fill_opacity": 0.08,
-        "stroke_color": "#14283F",
-        "stroke_width": 2.2
-      },
-      "caveat": "Fuente externa abierta: OpenStreetMap contributors (ODbL). Carácter referencial sujeto a homologación con cartografía oficial INEC/MIVIOT."
-    },
-    {
-      "id": "pa-pilotos-grupo9",
-      "title": "Tres polígonos piloto suministrados (Grupo 9 — KML convertidos)",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/pilotos_grupo9_panama_oeste.geojson",
-      "expected_file_hint": "geovisor/capas/pilotos_grupo9_panama_oeste.geojson",
-      "resolution": "Vectorial local suministrado (EPSG:4326)",
-      "style": {
-        "fill_color": "#007F8B",
-        "fill_opacity": 0.35,
-        "stroke_color": "#004c54",
-        "stroke_width": 2.5
-      },
-      "caveat": "Convertidos de los KML originales del expediente (Área de Proyecto 1, Crecimiento Informal, Zona de Invasión). Los nombres son etiquetas de trabajo y NO acreditan informalidad ni invasión."
-    },
-    {
-      "id": "pa-ndbi-ndvi-cambio",
-      "title": "Diferencia multitemporal ΔNDBI / ΔNDVI (20 m)",
-      "group": "Análisis espectral Copernicus",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL XYZ/Tile de GEE o COG en servicio externo",
-      "resolution": "20 m (banda SWIR B11 nativa)",
-      "style": {
-        "palette": [
-          "#2166ac",
-          "#f7f7f7",
-          "#b2182b"
-        ]
-      },
-      "caveat": "NDBI usa banda B11 de 20 m; no debe interpretarse como precisión de 10 m ni confundirse con suelo desnudo estacional."
-    },
-    {
-      "id": "pa-candidatos-cambio",
-      "title": "Polígonos candidatos de cambio construido",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "geovisor/capas/candidatos_cambio.geojson",
-      "resolution": "Derivado a 20 m (filtro >= 0,05 ha)",
-      "style": {
-        "fill_color": "#d95f02",
-        "fill_opacity": 0.45,
-        "stroke_color": "#8c2d04",
-        "stroke_width": 1.5
-      },
-      "caveat": "Detección preliminar sujeta a matriz de confusión con ortofotos, PLOT y verificación institucional de MIVIOT."
-    },
-    {
-      "id": "pa-intensidad-cambio",
-      "title": "Intensidad relativa de concentración de cambios",
-      "group": "Priorización e inspección",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL XYZ/Tile o COG de intensidad focal",
-      "resolution": "20 m (suavizado focal 30 m)",
-      "style": {
-        "palette": [
-          "#ffffcc",
-          "#fd8d3c",
-          "#800026"
-        ]
-      },
-      "caveat": "Representa densidad espacial de señales de cambio; NO es temperatura superficial ni certificación jurídica."
-    },
-    {
       "id": "pa-area-estudio-miviot",
-      "title": "Área de estudio: distritos de Arraiján y La Chorrera",
-      "group": "Ámbito y referencia",
+      "title": "Límites distritales del área de estudio: Arraiján y La Chorrera (121,569.3 ha)",
+      "group": "1 · Ámbito territorial e infraestructura base",
       "format": "geojson",
       "geometry_type": "polygon",
-      "status": "en_revision",
+      "status": "publicado",
       "source_path": "geovisor/capas/area_estudio.geojson",
-      "expected_file_hint": "geovisor/capas/area_estudio.geojson",
-      "resolution": "Vectorial institucional reproyectado a EPSG:4326",
+      "resolution": "Cartografía institucional MIVIOT (EPSG:4326)",
       "style": {
-        "fill_color": "#1B4F72",
-        "fill_opacity": 0.08,
-        "stroke_color": "#1B4F72",
-        "stroke_width": 2.5
+        "fill_color": "#0C1659",
+        "fill_opacity": 0.04,
+        "stroke_color": "#0C1659",
+        "stroke_width": 2.6,
+        "visible_by_default": true
       },
-      "caveat": "Límites distritales del área de estudio. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-area-urbanizada-construida-miviot",
-      "title": "Área urbanizada construida (proyectos formales)",
-      "group": "Cobertura y uso del suelo",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/area_urbanizada_construida.geojson",
-      "expected_file_hint": "geovisor/capas/area_urbanizada_construida.geojson",
-      "resolution": "Vectorial institucional reproyectado a EPSG:4326",
-      "style": {
-        "fill_color": "#884EA0",
-        "fill_opacity": 0.40,
-        "stroke_color": "#6C3483",
-        "stroke_width": 1.2
-      },
-      "caveat": "Registro de urbanizaciones y proyectos formales según datos institucionales de MIVIOT."
-    },
-    {
-      "id": "pa-cambio-construccion-2018-2025",
-      "title": "Cambio de construcción 2018–2025",
-      "group": "Detección de cambios",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/cambio_construccion_2018_2025.geojson",
-      "expected_file_hint": "geovisor/capas/cambio_construccion_2018_2025.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#E74C3C",
-        "fill_opacity": 0.50,
-        "stroke_color": "#922B21",
-        "stroke_width": 0.8
-      },
-      "caveat": "Áreas donde se detectó nueva construcción entre 2018 y 2025. Detección preliminar sujeta a validación de campo."
-    },
-    {
-      "id": "pa-hidrografia-miviot",
-      "title": "Hidrografía (ríos y quebradas)",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "line",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/hidrografia.geojson",
-      "expected_file_hint": "geovisor/capas/hidrografia.geojson",
-      "resolution": "Vectorial institucional reproyectado a EPSG:4326",
-      "style": {
-        "stroke_color": "#2E86C1",
-        "stroke_width": 1.8
-      },
-      "caveat": "Red hidrográfica del área de estudio. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-perdida-vegetacion-2018-2025",
-      "title": "Pérdida de vegetación 2018–2025",
-      "group": "Detección de cambios",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/perdida_vegetacion_2018_2025.geojson",
-      "expected_file_hint": "geovisor/capas/perdida_vegetacion_2018_2025.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#D4AC0D",
-        "fill_opacity": 0.45,
-        "stroke_color": "#7D6608",
-        "stroke_width": 0.8
-      },
-      "caveat": "Áreas donde se detectó pérdida de cobertura vegetal entre 2018 y 2025. Detección preliminar sujeta a validación."
-    },
-    {
-      "id": "pa-proximidad-area-urbanizada",
-      "title": "Proximidad a área urbanizada construida (buffers)",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/proximidad_area_urbanizada_construida.geojson",
-      "expected_file_hint": "geovisor/capas/proximidad_area_urbanizada_construida.geojson",
-      "resolution": "Vectorial institucional reproyectado a EPSG:4326",
-      "style": {
-        "fill_color": "#AF7AC5",
-        "fill_color_attribute": "distance",
-        "fill_color_categories": [
-          { "value": 500, "label": "500 m", "color": "#FFF176" },
-          { "value": 1000, "label": "1.000 m", "color": "#FBC02D" },
-          { "value": 2000, "label": "2.000 m", "color": "#9C6ADE" },
-          { "value": 3000, "label": "3.000 m", "color": "#5E2B97" }
-        ],
-        "fill_opacity": 0.25,
-        "stroke_color": "#76448A",
-        "stroke_width": 1.0
-      },
-      "caveat": "Zonas de proximidad (buffers de distancia) al área urbanizada construida."
-    },
-    {
-      "id": "pa-proximidad-hidrica",
-      "title": "Proximidad hídrica (buffers de protección)",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/proximidad_hidrica.geojson",
-      "expected_file_hint": "geovisor/capas/proximidad_hidrica.geojson",
-      "resolution": "Vectorial institucional reproyectado a EPSG:4326",
-      "style": {
-        "fill_color": "#5DADE2",
-        "fill_color_attribute": "distance",
-        "fill_color_categories": [
-          { "value": 250, "label": "250 m", "color": "#BFEFFF" },
-          { "value": 500, "label": "500 m", "color": "#5DADE2" },
-          { "value": 1000, "label": "1.000 m", "color": "#2166AC" }
-        ],
-        "fill_opacity": 0.22,
-        "stroke_color": "#2E86C1",
-        "stroke_width": 1.0
-      },
-      "caveat": "Zonas de proximidad a cuerpos de agua. Carácter referencial para evaluar riesgo hídrico."
-    },
-    {
-      "id": "pa-proximidad-red-vial",
-      "title": "Proximidad a red vial (buffers de accesibilidad)",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/proximidad_red_vial.geojson",
-      "expected_file_hint": "geovisor/capas/proximidad_red_vial.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#F39C12",
-        "fill_color_attribute": "PROXIMIDAD",
-        "fill_color_categories": [
-          { "value": 100, "label": "100 m", "color": "#FFEB3B" },
-          { "value": 300, "label": "300 m", "color": "#FF9800" },
-          { "value": 500, "label": "500 m", "color": "#D32F2F" }
-        ],
-        "fill_opacity": 0.20,
-        "stroke_color": "#D68910",
-        "stroke_width": 1.0
-      },
-      "caveat": "Zonas de proximidad a vías principales. Carácter referencial para evaluar accesibilidad."
-    },
-    {
-      "id": "pa-red-vial-miviot",
-      "title": "Red vial principal",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "line",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/red_vial.geojson",
-      "expected_file_hint": "geovisor/capas/red_vial.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "stroke_color": "#717D7E",
-        "stroke_width": 1.5
-      },
-      "caveat": "Vías principales del área de estudio y alrededores. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-perimetro-zona-estudio",
-      "title": "Perímetro de la zona de estudio",
-      "group": "Ámbito y referencia",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/perimetro_zona_estudio.geojson",
-      "expected_file_hint": "geovisor/capas/perimetro_zona_estudio.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#000A62",
-        "fill_opacity": 0.05,
-        "stroke_color": "#000A62",
-        "stroke_width": 2.0
-      },
-      "caveat": "Límite perimetral y máscara del área de estudio. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-cobertura-boscosa-miviot",
-      "title": "Cobertura boscosa",
-      "group": "Cobertura y uso del suelo",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/cobertura_boscosa.geojson",
-      "expected_file_hint": "geovisor/capas/cobertura_boscosa.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#27AE60",
-        "fill_opacity": 0.40,
-        "stroke_color": "#1E8449",
-        "stroke_width": 0.8
-      },
-      "caveat": "Polígonos de cobertura boscosa del área de estudio. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-probabilidad-ocupacion-miviot",
-      "title": "Probabilidad de ocupación (vectorial)",
-      "group": "Priorización e inspección",
-      "format": "geojson",
-      "geometry_type": "polygon",
-      "status": "en_revision",
-      "source_path": "geovisor/capas/probabilidad_ocupacion.geojson",
-      "expected_file_hint": "geovisor/capas/probabilidad_ocupacion.geojson",
-      "resolution": "Vectorial institucional (EPSG:4326)",
-      "style": {
-        "fill_color": "#E67E22",
-        "fill_opacity": 0.45,
-        "stroke_color": "#BA4A00",
-        "stroke_width": 0.8
-      },
-      "caveat": "Áreas clasificadas por niveles de probabilidad de ocupación informal. Fuente: equipo MIVIOT."
-    },
-    {
-      "id": "pa-cobertura-usosuelo-raster",
-      "title": "Cobertura y uso del suelo (ráster)",
-      "group": "Cobertura y uso del suelo",
-      "format": "xyz_or_cog",
-      "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL COG o tile service externo para COBERTURA_USOSUELO.tif",
-      "resolution": "Ráster institucional (pendiente de publicación como COG)",
-      "style": {
-        "classvalue_attribute": "Classvalue",
-        "classvalue_categories": [
-          { "value": 1, "label": "1", "color": "#4CAF50" },
-          { "value": 10, "label": "10", "color": "#D2A679" },
-          { "value": 26, "label": "26", "color": "#FFEB3B" }
-        ],
-        "palette": ["#4CAF50", "#D2A679", "#FFEB3B"]
-      },
-      "caveat": "Archivo ráster COBERTURA_USOSUELO.tif (23.7 MB) pendiente de conversión a Cloud-Optimized GeoTIFF y alojamiento externo."
+      "caveat": "Comprende los distritos de Arraiján (42,597.2 ha) y La Chorrera (78,972.1 ha)."
     },
     {
       "id": "pa-probabilidad-ocupacion-raster",
-      "title": "Probabilidad de ocupación (ráster)",
-      "group": "Priorización e inspección",
+      "title": "Superficie ráster continua de probabilidad de ocupación (MIVIOT · 30 m)",
+      "group": "2 · Modelo de probabilidad de ocupación del suelo",
       "format": "xyz_or_cog",
       "geometry_type": "raster",
-      "status": "en_preparacion",
-      "source_path": null,
-      "expected_file_hint": "URL COG o tile service externo para PROBABILIDAD_OCUPACION.tif",
-      "resolution": "Ráster institucional (pendiente de publicación como COG)",
+      "status": "publicado",
+      "source_path": "geovisor/capas/PROBABILIDAD_OCUPACION.tif",
+      "preview_image_path": "geovisor/data/probabilidad_ocupacion_preview.png",
+      "image_coordinates": [
+        [
+          -79.976932,
+          9.104039
+        ],
+        [
+          -79.559459,
+          9.104039
+        ],
+        [
+          -79.559459,
+          8.786941
+        ],
+        [
+          -79.976932,
+          8.786941
+        ]
+      ],
+      "resolution": "Ráster multicriterio institucional reproyectado a EPSG:4326",
       "style": {
-        "palette": ["#ffffcc", "#fd8d3c", "#800026"]
+        "fill_color": "#F97316",
+        "fill_opacity": 0.62,
+        "stroke_color": "#DC2626",
+        "stroke_width": 1.0,
+        "visible_by_default": false
       },
-      "caveat": "Archivo ráster PROBABILIDAD_OCUPACION.tif (16.5 MB) pendiente de conversión a Cloud-Optimized GeoTIFF y alojamiento externo."
+      "caveat": "Superficie continua derivada del cruce de proximidad vial, proximidad a proyectos urbanizados, restricción hídrica y cambios de cobertura."
+    },
+    {
+      "id": "pa-probabilidad-ocupacion-miviot",
+      "title": "Zonificación vectorial de probabilidad de ocupación (2,353 polígonos: Baja, Media y Alta)",
+      "group": "2 · Modelo de probabilidad de ocupación del suelo",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/probabilidad_ocupacion.geojson",
+      "resolution": "2,353 polígonos clasificados (Alta: 761, Media: 1,017, Baja: 575)",
+      "style": {
+        "fill_color": "#F97316",
+        "fill_color_attribute": "gridcode",
+        "fill_color_categories": [
+          {
+            "value": 3,
+            "label": "Probabilidad Alta (gridcode 3 · 761 polígonos)",
+            "color": "#DC2626"
+          },
+          {
+            "value": 2,
+            "label": "Probabilidad Media (gridcode 2 · 1,017 polígonos)",
+            "color": "#F97316"
+          },
+          {
+            "value": 1,
+            "label": "Probabilidad Baja (gridcode 1 · 575 polígonos)",
+            "color": "#FEF08A"
+          }
+        ],
+        "fill_opacity": 0.72,
+        "stroke_color": "#7C2D12",
+        "stroke_width": 0.5,
+        "visible_by_default": true
+      },
+      "caveat": "Herramienta preventiva de priorización territorial del MIVIOT para orientar monitoreo, vivienda formal y resguardo ambiental."
+    },
+    {
+      "id": "pa-cambio-construccion-2018-2025",
+      "title": "Detección de nueva construcción 2018–2025 (13,692 polígonos)",
+      "group": "3 · Detección satelital de cambios 2018–2025",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/cambio_construccion_2018_2025.geojson",
+      "resolution": "Detección multitemporal Sentinel-2 / GEE (EPSG:4326)",
+      "style": {
+        "fill_color": "#B91C1C",
+        "fill_opacity": 0.65,
+        "stroke_color": "#7F1D1D",
+        "stroke_width": 0.7,
+        "visible_by_default": true
+      },
+      "caveat": "Incrementos de superficie edificada detectados entre 2018 y 2025 en los corredores de Arraiján y La Chorrera."
+    },
+    {
+      "id": "pa-perdida-vegetacion-2018-2025",
+      "title": "Pérdida de cobertura vegetal 2018–2025 (17,157 polígonos)",
+      "group": "3 · Detección satelital de cambios 2018–2025",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/perdida_vegetacion_2018_2025.geojson",
+      "resolution": "Detección multitemporal ΔNDVI 2018–2025 (EPSG:4326)",
+      "style": {
+        "fill_color": "#D97706",
+        "fill_opacity": 0.52,
+        "stroke_color": "#92400E",
+        "stroke_width": 0.5,
+        "visible_by_default": false
+      },
+      "caveat": "Polígonos con reducción significativa de vigor vegetal asociados a apertura de suelos y frentes periurbanos."
+    },
+    {
+      "id": "pa-area-urbanizada-construida-miviot",
+      "title": "Urbanizaciones y proyectos residenciales formales registrados (414 polígonos MIVIOT)",
+      "group": "4 · Cobertura del suelo y factores condicionantes",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/area_urbanizada_construida.geojson",
+      "resolution": "Registro institucional MIVIOT depurado sin datos personales",
+      "style": {
+        "fill_color": "#7C3AED",
+        "fill_opacity": 0.5,
+        "stroke_color": "#4C1D95",
+        "stroke_width": 1.1,
+        "visible_by_default": true
+      },
+      "caveat": "Desarrollos residenciales formales registrados por el MIVIOT; permite contrastar el crecimiento planificado frente al espontáneo."
+    },
+    {
+      "id": "pa-cobertura-usosuelo-raster",
+      "title": "Mapa ráster de cobertura y uso del suelo (MIVIOT / MiAmbiente)",
+      "group": "4 · Cobertura del suelo y factores condicionantes",
+      "format": "xyz_or_cog",
+      "geometry_type": "raster",
+      "status": "publicado",
+      "source_path": "geovisor/capas/COBERTURA_USOSUELO.tif",
+      "preview_image_path": "geovisor/data/cobertura_usosuelo_preview.png",
+      "image_coordinates": [
+        [
+          -79.991617,
+          9.19354
+        ],
+        [
+          -79.547527,
+          9.19354
+        ],
+        [
+          -79.547527,
+          8.773397
+        ],
+        [
+          -79.991617,
+          8.773397
+        ]
+      ],
+      "resolution": "Ráster temático institucional reproyectado a EPSG:4326",
+      "style": {
+        "fill_color": "#15803D",
+        "fill_opacity": 0.55,
+        "stroke_color": "#166534",
+        "stroke_width": 1.0,
+        "visible_by_default": false
+      },
+      "caveat": "Línea base de cobertura y uso del suelo empleada como insumo del modelo de probabilidad de ocupación."
+    },
+    {
+      "id": "pa-cobertura-boscosa-miviot",
+      "title": "Cobertura boscosa remanente",
+      "group": "4 · Cobertura del suelo y factores condicionantes",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/cobertura_boscosa.geojson",
+      "resolution": "Vectorial institucional optimizado para web (EPSG:4326)",
+      "style": {
+        "fill_color": "#16A34A",
+        "fill_opacity": 0.42,
+        "stroke_color": "#15803D",
+        "stroke_width": 0.6,
+        "visible_by_default": false
+      },
+      "caveat": "Parches de bosque y vegetación arbórea a resguardar frente a la expansión metropolitana."
+    },
+    {
+      "id": "pa-pilotos-grupo9",
+      "title": "Polígonos piloto de contraste metodológico",
+      "group": "1 · Ámbito territorial e infraestructura base",
+      "format": "geojson",
+      "geometry_type": "polygon",
+      "status": "publicado",
+      "source_path": "geovisor/capas/pilotos_grupo9_panama_oeste.geojson",
+      "resolution": "3 ventanas piloto de calibración en EPSG:4326",
+      "style": {
+        "fill_color": "#0D9488",
+        "fill_opacity": 0.18,
+        "stroke_color": "#0F766E",
+        "stroke_width": 2.2,
+        "visible_by_default": false
+      },
+      "caveat": "Áreas piloto empleadas para calibración visual de los índices espectrales en GEE."
+    },
+    {
+      "id": "pa-red-vial-miviot",
+      "title": "Red vial estructurante (Panamericana, Autopista Arraiján–La Chorrera y colectoras)",
+      "group": "1 · Ámbito territorial e infraestructura base",
+      "format": "geojson",
+      "geometry_type": "line",
+      "status": "publicado",
+      "source_path": "geovisor/capas/red_vial.geojson",
+      "resolution": "Vectorial lineal MIVIOT (EPSG:4326)",
+      "style": {
+        "fill_color": "#475569",
+        "fill_opacity": 0.0,
+        "stroke_color": "#475569",
+        "stroke_width": 1.6,
+        "visible_by_default": false
+      },
+      "caveat": "Infraestructura vial principal considerada en las variables de accesibilidad del modelo."
+    },
+    {
+      "id": "pa-hidrografia-miviot",
+      "title": "Red hidrográfica principal (ríos y quebradas)",
+      "group": "1 · Ámbito territorial e infraestructura base",
+      "format": "geojson",
+      "geometry_type": "line",
+      "status": "publicado",
+      "source_path": "geovisor/capas/hidrografia.geojson",
+      "resolution": "Vectorial lineal MIVIOT (EPSG:4326)",
+      "style": {
+        "fill_color": "#0284C7",
+        "fill_opacity": 0.0,
+        "stroke_color": "#0284C7",
+        "stroke_width": 1.5,
+        "visible_by_default": false
+      },
+      "caveat": "Cauces fluviales con servidumbres y buffers de protección hídrica."
     }
   ]
 }

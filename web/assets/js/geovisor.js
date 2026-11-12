@@ -1184,136 +1184,122 @@
 
     // Registro de capas cargadas dinámicamente desde geovisor/capas/ o desde archivo local
     var dynamicFolderLayers = {}; // key: fileName -> { geojson, color, visible }
+    var loadedProjectGeoJsons = {}; // cache en memoria para evitar re-descargar GeoJSON al cambiar mapa base
     var localGeoJsonCache = null;
     var initialBoundsFitted = false;
 
-    function updateLayerLegend() {
-      var legendContent = document.getElementById("gv-layer-legend-content");
-      if (!legendContent) return;
-      legendContent.textContent = "";
-
-      function appendLegendLayer(title, style, description, visible, symbolLabel) {
-        if (!visible) return;
-        var layerEl = document.createElement("section");
-        layerEl.className = "geovisor-legend-layer";
-        var titleEl = document.createElement("h3");
-        titleEl.className = "geovisor-legend-layer-title";
-        titleEl.textContent = title;
-        layerEl.appendChild(titleEl);
-
-        var categories = style && (style.fill_color_categories || style.classvalue_categories);
-        var attribute = style && (style.fill_color_attribute || style.classvalue_attribute);
-        if (Array.isArray(categories) && categories.length) {
-          categories.forEach(function (category) {
-            var row = document.createElement("div");
-            row.className = "geovisor-legend-item";
-            var swatch = document.createElement("span");
-            swatch.className = "geovisor-legend-swatch";
-            swatch.style.backgroundColor = category.color || "#7A8798";
-            swatch.setAttribute("aria-hidden", "true");
-            var label = document.createElement("span");
-            label.textContent = category.label || String(category.value);
-            row.appendChild(swatch);
-            row.appendChild(label);
-            layerEl.appendChild(row);
-
-            if (category.description) {
-              var categoryDescription = document.createElement("p");
-              categoryDescription.className = "geovisor-legend-description";
-              categoryDescription.textContent = category.description;
-              layerEl.appendChild(categoryDescription);
-            }
-          });
-          if (attribute) {
-            var attributeNote = document.createElement("p");
-            attributeNote.className = "geovisor-legend-description";
-            attributeNote.textContent = "Categorías por " + attribute + ".";
-            layerEl.appendChild(attributeNote);
+    function findReferenceOverlayLayerId(forBoundaryLayer) {
+      var candidates = [];
+      if (!forBoundaryLayer && Array.isArray(cfg.layers)) {
+        cfg.layers.forEach(function (l) {
+          if (l && l.id && l.style && l.style.interactive_fill === false) {
+            candidates.push(l.id + "-fill");
+            candidates.push(l.id + "-line");
           }
-        } else {
-          var row = document.createElement("div");
-          row.className = "geovisor-legend-item";
-          var swatch = document.createElement("span");
-          swatch.className = "geovisor-legend-swatch";
-          swatch.style.backgroundColor = (style && style.fill_color) || (style && style.palette && style.palette[0]) || "#007F8B";
-          swatch.setAttribute("aria-hidden", "true");
-          var label = document.createElement("span");
-          label.textContent = symbolLabel || "Símbolo de la capa";
-          row.appendChild(swatch);
-          row.appendChild(label);
-          layerEl.appendChild(row);
-        }
-
-        if (description) {
-          var descriptionEl = document.createElement("p");
-          descriptionEl.className = "geovisor-legend-description";
-          descriptionEl.textContent = description;
-          layerEl.appendChild(descriptionEl);
-        }
-        legendContent.appendChild(layerEl);
+        });
       }
-
-      var customSymbolLabels = {
-        "pa-area-estudio-miviot": "Área de estudio",
-        "pa-area-urbanizada-construida-miviot": "Área urbanizada/construida",
-        "pa-cambio-construccion-2018-2025": "Cambio en la mancha de construcción",
-        "pa-hidrografia-miviot": "Hidrografía",
-        "pa-perdida-vegetacion-2018-2025": "Cambio en la mancha de vegetación",
-        "pa-red-vial-miviot": "Red víal"
-      };
-      (cfg.layers || []).forEach(function (lyr) {
-        if (!lyr.source_path || (lyr.status !== "publicado" && lyr.status !== "en_revision")) return;
-        var toggle = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
-        appendLegendLayer(
-          lyr.title,
-          lyr.style || {},
-          lyr.caveat || "",
-          !toggle || toggle.checked,
-          customSymbolLabels[lyr.id] || "Símbolo de la capa"
+      if (!forBoundaryLayer) {
+        candidates.push(
+          "sv-amss-perimetro-distritos-fill",
+          "sv-amss-perimetro-distritos-line",
+          "sv-amss-perimetro-metropolitano-fill",
+          "sv-amss-perimetro-metropolitano-line"
         );
-      });
-
-      Object.keys(dynamicFolderLayers).forEach(function (name) {
-        var entry = dynamicFolderLayers[name];
-        appendLegendLayer(name, { fill_color: entry.color }, "Capa vectorial cargada desde la carpeta del repositorio.", entry.visible);
-      });
-
-      if (!legendContent.children.length) {
-        var empty = document.createElement("p");
-        empty.className = "geovisor-legend-description";
-        empty.textContent = "Activa una capa para ver su simbología y descripción.";
-        legendContent.appendChild(empty);
       }
+      candidates.push("study-area-mask-fill", "study-area-mask-outline");
+      for (var i = 0; i < candidates.length; i++) {
+        if (mapInstance && mapInstance.getLayer(candidates[i])) {
+          return candidates[i];
+        }
+      }
+      return undefined;
     }
-
-    var legendToggle = document.getElementById("gv-toggle-legend");
-    var legendPanel = document.getElementById("gv-layer-legend");
-    if (legendToggle && legendPanel) {
-      legendToggle.addEventListener("click", function () {
-        var collapsed = legendPanel.classList.toggle("is-collapsed");
-        legendToggle.setAttribute("aria-expanded", String(!collapsed));
-      });
-    }
-    document.querySelectorAll("[data-layer-toggle]").forEach(function (toggle) {
-      toggle.addEventListener("change", updateLayerLegend);
-    });
-    updateLayerLegend();
 
     function attachFeatureClickPopup(layerId, badgeTitle, defaultTitle) {
       mapInstance.on("click", layerId, function (e) {
+        if (e.originalEvent && e.originalEvent._gvPopupHandled) return;
         if (!e.features || !e.features.length) return;
+        if (e.originalEvent) e.originalEvent._gvPopupHandled = true;
         var props = e.features[0].properties || {};
-        var nameVal = props.nombre || props.name || props.NAM || defaultTitle;
+        var nameVal = props.nombre || props.NAME_UPD || props.name || props.NAM || defaultTitle;
         var rows = [];
-        Object.keys(props).forEach(function (k) {
-          if (k === "nombre" || k === "name") return;
-          if (props[k] !== null && props[k] !== undefined && String(props[k]).trim() !== "") {
-            rows.push([k, String(props[k])]);
+        if (props.ID_CELDA !== undefined && props.ID_CELDA !== null) {
+          nameVal = "Celda " + String(props.ID_CELDA) + (props.DISTRITO ? " · " + String(props.DISTRITO) : "");
+          rows.push(["Valor estimado (Media celda)", "$" + Number(props.VAL_EST_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push([
+            "Mediana / Potencial celda",
+            "$" + Number(props.VAL_MED_M2 || 0).toFixed(2) + " / $" + Number(props.VAL_POT_M2 || 0).toFixed(2) + " USD/m²"
+          ]);
+          rows.push(["Dispersión intra-celda (DE)", "± $" + Number(props.VAL_STD_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push(["Tipología morfológica GEE", String(props.TIPO_SUELO || "—").replace(/_/g, " ")]);
+          var pctEd = props.PCT_EDIF !== undefined && props.PCT_EDIF !== null
+            ? Number(props.PCT_EDIF)
+            : Number(props.FRAC_EDIF || 0) * 100;
+          rows.push(["Fracción construida (10 m)", pctEd.toFixed(1) + "%"]);
+          rows.push(["Altura media 2.5D (Open Buildings)", Number(props.ALT_EDIF_M || 0).toFixed(2) + " m"]);
+          rows.push(["Pendiente media (GLO-30)", Number(props.PEND_DEG || 0).toFixed(1) + "°"]);
+          rows.push(["Distrito / Superficie", (props.DISTRITO || "AMSS") + " · " + Number(props.AREA_HA || 0).toFixed(2) + " ha"]);
+        } else if (props.ORIGEN_FIN !== undefined && props.ORIGEN_FIN !== null) {
+          nameVal = (props.NAME_UPD || ("UPD #" + (props.OBJECTID || ""))) + (props.DISTRITO ? " · " + String(props.DISTRITO) : "");
+          rows.push(["Valor integrado 2025 (VAL_FIN_M2)", "$" + Number(props.VAL_FIN_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push([
+            "Fuente de consolidación",
+            props.ORIGEN_FIN === "OBSERVADO" ? "Observado / Calibrado 2025" : "Imputado por Modelo Satelital GEE"
+          ]);
+          rows.push(["Predicción satelital GEE (VAL_MOD_M2)", "$" + Number(props.VAL_MOD_M2 || 0).toFixed(2) + " USD/m²"]);
+          if (props.ORIGEN_FIN === "OBSERVADO" && props.DIF_MOD_M2 !== undefined && props.DIF_MOD_M2 !== null && props.DIF_MOD_M2 !== "") {
+            var difNum = Number(props.DIF_MOD_M2);
+            if (!isNaN(difNum)) {
+              rows.push(["Residual (Modelo − Observado)", (difNum >= 0 ? "+" : "") + "$" + difNum.toFixed(2) + " USD/m²"]);
+            }
           }
-        });
+          rows.push(["Tipología UPD / Superficie", (props.TIPO || "—") + " · " + Number(props.AREA_HA || 0).toFixed(2) + " ha"]);
+          rows.push(["Distrito / Municipio", (props.DISTRITO || "—") + (props.MUNICIPIO ? " · " + props.MUNICIPIO : "")]);
+        } else if (props.promedio_2025 !== undefined && props.promedio_2025 !== null) {
+          rows.push(["Precio promedio 2025 (Web Scraping)", "$" + Number(props.promedio_2025).toFixed(2) + " USD"]);
+          if (props.rango_2025) rows.push(["Rango homologado 2025", String(props.rango_2025)]);
+          if (props.cuadrante_) rows.push(["Cuadrante LISA (Moran)", String(props.cuadrante_)]);
+          if (props.cluster_p05) rows.push(["Significancia LISA (p≤0.05)", String(props.cluster_p05)]);
+          if (props.moran_loca !== undefined) rows.push(["I de Moran Local", String(props.moran_loca) + " (p=" + props.p_perm_loc + ")"]);
+          if (props.z_precio !== undefined) rows.push(["Z-Score / Log Precio", "Z=" + props.z_precio + " · ln=" + props.log_precio]);
+          if (props.nomb_distr) rows.push(["Distrito / Municipio", props.nomb_distr + " · " + (props.nomb_mun || "")]);
+        } else if (props.NAME_UPD !== undefined && (props.P1_N !== undefined || props.P2_N !== undefined)) {
+          var p1Txt = (props.P1_PROM !== undefined && props.P1_PROM !== null && Number(props.P1_N) > 0)
+            ? "$" + Number(props.P1_PROM).toFixed(2) + " USD (Mediana: $" + Number(props.P1_MED || 0).toFixed(2) + " · n=" + props.P1_N + ")"
+            : "Sin permisos (n=0)";
+          var p2Txt = (props.P2_PROM !== undefined && props.P2_PROM !== null && Number(props.P2_N) > 0)
+            ? "$" + Number(props.P2_PROM).toFixed(2) + " USD (Mediana: $" + Number(props.P2_MED || 0).toFixed(2) + " · n=" + props.P2_N + ")"
+            : "Sin permisos (n=0)";
+          rows.push(["Valor suelo 2007–2019 (P1_PROM)", p1Txt]);
+          rows.push(["Valor suelo 2020–2026 (P2_PROM)", p2Txt]);
+          if (props.TENDENCIA) {
+            var varTxt = props.TENDENCIA;
+            if (props.PCT_VAR !== undefined && props.PCT_VAR !== null) {
+              varTxt += " (" + (Number(props.PCT_VAR) > 0 ? "+" : "") + Number(props.PCT_VAR).toFixed(1) + "%)";
+            }
+            rows.push(["Tendencia 2007–19 vs 2020–26", varTxt]);
+          }
+          rows.push(["Permisos OPAMSS (Total)", String(props.PC_TOT || 0) + " (2007–19: " + (props.PC_07_19 || 0) + " · 2020–26: " + (props.PC_20_26 || 0) + ")"]);
+          rows.push(["Distrito / Tipología", (props.nomb_distr || "") + " (" + (props.TYPE || "") + " · " + (props.HA || 0) + " ha)"]);
+          rows.push(["Población / Vivienda UVIP", "Hab: " + (props.HAB_TOTAL || 0) + " · UVIP: " + (props.UVIP || 0)]);
+        } else {
+          var titleCand = props.nombre || props.NAME_UPD || props.name || props.NAM || props.corregimiento || props.distrito || props.id_celda || props.codigo_ae || props.clase_lbl || props.categoria;
+          if (titleCand) nameVal = String(titleCand);
+          Object.keys(props).forEach(function (k) {
+            if (k === "nombre" || k === "name" || k.charAt(0) === "_") return;
+            var rawV = props[k];
+            if (rawV === null || rawV === undefined || String(rawV).trim() === "") return;
+            var dispV = String(rawV);
+            if (typeof rawV === "number" && !isNaN(rawV)) {
+              dispV = Math.abs(rawV - Math.round(rawV)) < 1e-6 ? String(Math.round(rawV)) : Number(rawV).toFixed(2);
+            }
+            var prettyKey = k.replace(/_/g, " ");
+            rows.push([prettyKey.charAt(0).toUpperCase() + prettyKey.slice(1), dispV]);
+          });
+        }
         if (!rows.length) rows.push(["Estado", "Capa vectorial cargada"]);
-        var dom = createSafePopupElement(String(nameVal), rows.slice(0, 8), badgeTitle);
-        new window.maplibregl.Popup({ maxWidth: "320px" }).setLngLat(e.lngLat).setDOMContent(dom).addTo(mapInstance);
+        var dom = createSafePopupElement(String(nameVal), rows.slice(0, 10), badgeTitle);
+        new window.maplibregl.Popup({ maxWidth: "360px" }).setLngLat(e.lngLat).setDOMContent(dom).addTo(mapInstance);
       });
       mapInstance.on("mouseenter", layerId, function () {
         mapInstance.getCanvas().style.cursor = "pointer";
@@ -1323,41 +1309,903 @@
       });
     }
 
-    function renderGeoJsonSourceLayers(srcId, prefixId, dataOrUrl, fillColor, fillOpacity, strokeColor, strokeWidth, badgeLabel, layerTitle) {
+    function makeNumericStepExpr(propName, breaks, colors, noDataColor) {
+      var stepArr = ["step", ["coalesce", ["to-number", ["get", propName]], 0], colors[0]];
+      for (var i = 0; i < breaks.length; i++) {
+        stepArr.push(breaks[i], colors[i + 1]);
+      }
+      return [
+        "case",
+        ["all", ["has", propName], ["!=", ["get", propName], null], [">", ["to-number", ["get", propName]], 0]],
+        stepArr,
+        noDataColor || "#CBD5E1"
+      ];
+    }
+
+    function makeNumericStepZeroOkExpr(propName, breaks, colors, noDataColor) {
+      var stepArr = ["step", ["coalesce", ["to-number", ["get", propName]], 0], colors[0]];
+      for (var i = 0; i < breaks.length; i++) {
+        stepArr.push(breaks[i], colors[i + 1]);
+      }
+      return [
+        "case",
+        ["all", ["has", propName], ["!=", ["get", propName], null], [">=", ["to-number", ["get", propName]], 0]],
+        stepArr,
+        noDataColor || "#CBD5E1"
+      ];
+    }
+
+    var THEMATIC_SCHEMES = {
+      "auto_gee_malla_250m": {
+        "homologated": {
+          label: "Opción 1 · Escala Homologada de Valor del Suelo (USD/m² · VAL_EST_M2)",
+          expr: makeNumericStepExpr("VAL_EST_M2", [30, 50, 100, 175, 300], ["#FEF0D9", "#FDD49E", "#FDBB84", "#FC8D59", "#E34A33", "#990000"], "#CBD5E1"),
+          items: [
+            { color: "#FEF0D9", label: "Reserva / Rural (≤ $30 · 8,557 celdas)" },
+            { color: "#FDD49E", label: "Periurbano Bajo ($30–$50 · 11,225 celdas)" },
+            { color: "#FDBB84", label: "Transición ($50–$100 · 2,215 celdas)" },
+            { color: "#FC8D59", label: "Urbano Medio ($100–$175 · 1,218 celdas)" },
+            { color: "#E34A33", label: "Urbano Alto ($175–$300 · 836 celdas)" },
+            { color: "#990000", label: "Nodos Prime (> $300 · 241 celdas)" }
+          ]
+        },
+        "quantiles": {
+          label: "Opción 2 · Quintiles Metropolitanos 250 m (P20, P40, P60, P80 · 4,858 celdas/clase)",
+          expr: makeNumericStepExpr("VAL_EST_M2", [27.46, 30.73, 34.73, 46.33], ["#FDE725", "#5EC962", "#21918C", "#3B528B", "#440154"], "#CBD5E1"),
+          items: [
+            { color: "#FDE725", label: "Q1 (≤ $27.46/m²)" },
+            { color: "#5EC962", label: "Q2 ($27.47–$30.73/m²)" },
+            { color: "#21918C", label: "Q3 ($30.74–$34.73/m²)" },
+            { color: "#3B528B", label: "Q4 ($34.74–$46.33/m²)" },
+            { color: "#440154", label: "Q5 (> $46.33 hasta $375.90/m²)" }
+          ]
+        },
+        "median": {
+          label: "Opción 3 · Mediana Intra-Celda a 20 m (VAL_MED_M2 · resistente a bordes)",
+          expr: makeNumericStepExpr("VAL_MED_M2", [30, 50, 100, 175, 300], ["#FEF0D9", "#FDD49E", "#FDBB84", "#FC8D59", "#E34A33", "#990000"], "#CBD5E1"),
+          items: [
+            { color: "#FEF0D9", label: "Mediana ≤ $30/m²" },
+            { color: "#FDD49E", label: "Mediana $30–$50/m²" },
+            { color: "#FDBB84", label: "Mediana $50–$100/m²" },
+            { color: "#FC8D59", label: "Mediana $100–$175/m²" },
+            { color: "#E34A33", label: "Mediana $175–$300/m²" },
+            { color: "#990000", label: "Mediana > $300/m²" }
+          ]
+        },
+        "tipologia": {
+          label: "Opción 4 · Régimen Morfológico Territorial (TIPO_SUELO)",
+          expr: [
+            "match",
+            ["get", "TIPO_SUELO"],
+            "URBANO_CONSOLIDADO", "#B91C1C",
+            "PERIURBANO_TRANSICION", "#F59E0B",
+            "RURAL_RESERVA", "#0F766E",
+            "#CBD5E1"
+          ],
+          items: [
+            { color: "#B91C1C", label: "Urbano Consolidado (2,215 celdas · Media $187.3/m²)" },
+            { color: "#F59E0B", label: "Periurbano en Transición (1,571 celdas · Media $74.4/m²)" },
+            { color: "#0F766E", label: "Rural / Reserva Ambiental (20,506 celdas · Media $33.4/m²)" }
+          ]
+        },
+        "edificacion": {
+          label: "Opción 5 · Intensidad de Huella Construida a 10 m (PCT_EDIF %)",
+          expr: makeNumericStepZeroOkExpr("PCT_EDIF", [5, 20, 45, 75], ["#F1F5F9", "#BAE6FD", "#38BDF8", "#0284C7", "#1E3A8A"], "#F1F5F9"),
+          items: [
+            { color: "#F1F5F9", label: "Sin urbanizar (< 5%)" },
+            { color: "#BAE6FD", label: "Disperso (5%–20%)" },
+            { color: "#38BDF8", label: "Periurbano (20%–45%)" },
+            { color: "#0284C7", label: "Consolidado (45%–75%)" },
+            { color: "#1E3A8A", label: "Alta compacidad (> 75%)" }
+          ]
+        },
+        "incertidumbre": {
+          label: "Opción 6 · Heterogeneidad Intra-Celda (Desviación Estándar VAL_STD_M2)",
+          expr: makeNumericStepZeroOkExpr("VAL_STD_M2", [4, 7, 15, 30], ["#F8FAFC", "#DDD6FE", "#A78BFA", "#7C3AED", "#4C1D95"], "#F8FAFC"),
+          items: [
+            { color: "#F8FAFC", label: "Muy homogénea (≤ $4/m²)" },
+            { color: "#DDD6FE", label: "Baja dispersión ($4–$7/m²)" },
+            { color: "#A78BFA", label: "Transición ($7–$15/m²)" },
+            { color: "#7C3AED", label: "Gradiente marcado ($15–$30/m²)" },
+            { color: "#4C1D95", label: "Borde de alto contraste (> $30/m²)" }
+          ]
+        }
+      },
+      "auto_gee_upd_425": {
+        "homologated": {
+          label: "Opción 1 · Valor Integrado 2025 sin Vacíos (425 UPDs · VAL_FIN_M2)",
+          expr: makeNumericStepExpr("VAL_FIN_M2", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#CBD5E1"),
+          items: [
+            { color: "#FEF0D9", label: "Bajo (≤ $50/m² · 177 UPD)" },
+            { color: "#FDCC8A", label: "Medio-Bajo ($50–$100/m² · 91 UPD)" },
+            { color: "#FC8D59", label: "Medio ($100–$175/m² · 67 UPD)" },
+            { color: "#E34A33", label: "Medio-Alto ($175–$300/m² · 53 UPD)" },
+            { color: "#B30000", label: "Alto (> $300/m² · 37 UPD)" }
+          ]
+        },
+        "origen": {
+          label: "Opción 2 · Cobertura Empírica vs. Imputación Satelital GEE (ORIGEN_FIN)",
+          expr: [
+            "match",
+            ["get", "ORIGEN_FIN"],
+            "OBSERVADO", "#0F766E",
+            "IMPUTADO_MODELO_GEE", "#F59E0B",
+            "#94A3B8"
+          ],
+          items: [
+            { color: "#0F766E", label: "Observado / Calibrado 2025 (281 UPD · 66.1%)" },
+            { color: "#F59E0B", label: "Imputado por Modelo GEE (144 UPD · 33.9% · 57,648 ha)" }
+          ]
+        },
+        "modelo_puro": {
+          label: "Opción 3 · Predicción Satelital Pura GEE en las 425 UPDs (VAL_MOD_M2)",
+          expr: makeNumericStepExpr("VAL_MOD_M2", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#CBD5E1"),
+          items: [
+            { color: "#FEF0D9", label: "Modelo ≤ $50/m²" },
+            { color: "#FDCC8A", label: "Modelo $50–$100/m²" },
+            { color: "#FC8D59", label: "Modelo $100–$175/m²" },
+            { color: "#E34A33", label: "Modelo $175–$300/m²" },
+            { color: "#B30000", label: "Modelo > $300/m²" }
+          ]
+        },
+        "quantiles": {
+          label: "Opción 4 · Quintiles de las 425 UPDs Completas (P20, P40, P60, P80)",
+          expr: makeNumericStepExpr("VAL_FIN_M2", [26.37, 48.67, 89.40, 189.98], ["#FDE725", "#5EC962", "#21918C", "#3B528B", "#440154"], "#CBD5E1"),
+          items: [
+            { color: "#FDE725", label: "Q1 (≤ $26.37/m² · 85 UPD)" },
+            { color: "#5EC962", label: "Q2 ($26.38–$48.67/m² · 85 UPD)" },
+            { color: "#21918C", label: "Q3 ($48.68–$89.40/m² · 85 UPD)" },
+            { color: "#3B528B", label: "Q4 ($89.41–$189.98/m² · 85 UPD)" },
+            { color: "#440154", label: "Q5 (> $189.98/m² · 85 UPD)" }
+          ]
+        }
+      },
+      "auto_gee_pixel_20m": {
+        "urbano_desarrollable": {
+          label: "Opción 1 · Superficie Píxel 20 m — Suelo Urbano y Desarrollable (Pendiente < 35°)",
+          expr: "#E34A33",
+          items: [
+            { color: "#FEF0D9", label: "≤ $30/m² (Reserva / Rural)" },
+            { color: "#FDD49E", label: "$30–$50/m² (Periurbano)" },
+            { color: "#FDBB84", label: "$50–$100/m² (Transición)" },
+            { color: "#FC8D59", label: "$100–$175/m² (Urbano Medio)" },
+            { color: "#E34A33", label: "$175–$300/m² (Urbano Alto)" },
+            { color: "#B30000", label: "$300–$420/m² (Ejes Centrales)" },
+            { color: "#67001F", label: "> $420/m² (Máx. $471.13/m²)" }
+          ]
+        },
+        "potencial_continuo": {
+          label: "Opción 2 · Superficie Píxel 20 m — Potencial Continuo Completo (Sin máscara topográfica)",
+          expr: "#E34A33",
+          items: [
+            { color: "#FEF0D9", label: "≤ $30/m² (Fondo montañoso/rural)" },
+            { color: "#FDD49E", label: "$30–$50/m²" },
+            { color: "#FDBB84", label: "$50–$100/m²" },
+            { color: "#FC8D59", label: "$100–$175/m²" },
+            { color: "#E34A33", label: "$175–$300/m²" },
+            { color: "#B30000", label: "$300–$420/m²" },
+            { color: "#67001F", label: "> $420/m² (Nodos Prime)" }
+          ]
+        }
+      },
+      "auto_lisa_2025": {
+        "homologated": {
+          label: "Opción 1 · Escala Homologada Comparable (5 rangos fijos USD)",
+          expr: makeNumericStepExpr("promedio_2025", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#CBD5E1"),
+          items: [
+            { color: "#FEF0D9", label: "Bajo (≤ $50 · 79 UPD)" },
+            { color: "#FDCC8A", label: "Medio-Bajo ($50–$100 · 55 UPD)" },
+            { color: "#FC8D59", label: "Medio ($100–$175 · 53 UPD)" },
+            { color: "#E34A33", label: "Medio-Alto ($175–$300 · 42 UPD)" },
+            { color: "#B30000", label: "Alto (> $300 · 36 UPD)" }
+          ]
+        },
+        "quantiles": {
+          label: "Opción 2 · Quintiles de Mercado 2025 (P20, P40, P60, P80 · 53 UPD/clase)",
+          expr: makeNumericStepExpr("promedio_2025", [29.61, 72.71, 125.41, 238.27], ["#FDE725", "#5EC962", "#21918C", "#3B528B", "#440154"], "#CBD5E1"),
+          items: [
+            { color: "#FDE725", label: "Q1 (≤ $29.61)" },
+            { color: "#5EC962", label: "Q2 ($29.62–$72.71)" },
+            { color: "#21918C", label: "Q3 ($72.72–$125.41)" },
+            { color: "#3B528B", label: "Q4 ($125.42–$238.27)" },
+            { color: "#440154", label: "Q5 (> $238.27 hasta $677.30)" }
+          ]
+        },
+        "jenks": {
+          label: "Opción 3 · Rupturas Naturales (Jenks 5 clases · promedio_2025)",
+          expr: makeNumericStepExpr("promedio_2025", [43.15, 101.84, 186.49, 328.02], ["#FCFBFD", "#BCBDDC", "#807DBA", "#54278F", "#2D004B"], "#CBD5E1"),
+          items: [
+            { color: "#FCFBFD", label: "$0.64 – $43.15" },
+            { color: "#BCBDDC", label: "$43.16 – $101.84" },
+            { color: "#807DBA", label: "$101.85 – $186.49" },
+            { color: "#54278F", label: "$186.50 – $328.02" },
+            { color: "#2D004B", label: "$328.03 – $677.30" }
+          ]
+        },
+        "lisa_quadrants": {
+          label: "Opción 4 · Cuadrantes de Autocorrelación Espacial LISA (cuadrante_)",
+          expr: [
+            "match",
+            ["get", "cuadrante_"],
+            "Alto-Alto", "#D7191C",
+            "Bajo-Bajo", "#2C7BB6",
+            "Bajo-Alto", "#ABD9E9",
+            "Alto-Bajo", "#FDAE61",
+            "#CBD5E1"
+          ],
+          items: [
+            { color: "#D7191C", label: "Alto-Alto · Hotspot (122 UPD)" },
+            { color: "#2C7BB6", label: "Bajo-Bajo · Coldspot (78 UPD)" },
+            { color: "#ABD9E9", label: "Bajo-Alto · Isla menor valor (33 UPD)" },
+            { color: "#FDAE61", label: "Alto-Bajo · Polo aislado (32 UPD)" }
+          ]
+        },
+        "lisa_sig": {
+          label: "Opción 5 · Clusters LISA Estadísticamente Significativos (p_perm_loc ≤ 0.05)",
+          expr: [
+            "match",
+            ["get", "cluster_p05"],
+            "Cluster Alto-Alto (p≤0.05)", "#B91C1C",
+            "Cluster Bajo-Bajo (p≤0.05)", "#1D4ED8",
+            "Cluster Bajo-Alto (p≤0.05)", "#0284C7",
+            "Cluster Alto-Bajo (p≤0.05)", "#EA580C",
+            "#E2E8F0"
+          ],
+          items: [
+            { color: "#B91C1C", label: "Hotspot Alto-Alto p≤0.05 (35 UPD)" },
+            { color: "#1D4ED8", label: "Coldspot Bajo-Bajo p≤0.05 (24 UPD)" },
+            { color: "#0284C7", label: "Atípico Bajo-Alto p≤0.05 (1 UPD)" },
+            { color: "#E2E8F0", label: "No significativo p>0.05 (205 UPD)" }
+          ]
+        }
+      },
+      "auto_upd_2020_2026": {
+        "homologated": {
+          label: "Opción 1 · Escala Homologada Comparable (5 rangos fijos USD · P2_PROM)",
+          expr: makeNumericStepExpr("P2_PROM", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#E2E8F0"),
+          items: [
+            { color: "#FEF0D9", label: "Bajo (≤ $50 · 27 UPD)" },
+            { color: "#FDCC8A", label: "Medio-Bajo ($50–$100 · 36 UPD)" },
+            { color: "#FC8D59", label: "Medio ($100–$175 · 44 UPD)" },
+            { color: "#E34A33", label: "Medio-Alto ($175–$300 · 26 UPD)" },
+            { color: "#B30000", label: "Alto (> $300 · 12 UPD)" },
+            { color: "#E2E8F0", label: "Sin trámites 2020–2026 (281 UPD)" }
+          ]
+        },
+        "quantiles": {
+          label: "Opción 2 · Quintiles 2020–2026 (P20, P40, P60, P80 · P2_PROM)",
+          expr: makeNumericStepExpr("P2_PROM", [51.48, 89.01, 139.70, 193.30], ["#EFF3FF", "#BDD7E7", "#6BAED6", "#3182BD", "#08519C"], "#E2E8F0"),
+          items: [
+            { color: "#EFF3FF", label: "Q1 (≤ $51.48)" },
+            { color: "#BDD7E7", label: "Q2 ($51.49–$89.01)" },
+            { color: "#6BAED6", label: "Q3 ($89.02–$139.70)" },
+            { color: "#3182BD", label: "Q4 ($139.71–$193.30)" },
+            { color: "#08519C", label: "Q5 (> $193.30 hasta $709.32)" },
+            { color: "#E2E8F0", label: "Sin datos (281 UPD)" }
+          ]
+        },
+        "jenks": {
+          label: "Opción 3 · Rupturas Naturales (Jenks 5 clases · P2_PROM)",
+          expr: makeNumericStepExpr("P2_PROM", [59.10, 124.67, 219.42, 407.03], ["#EDF8E9", "#BAE4B3", "#74C476", "#31A354", "#006D2C"], "#E2E8F0"),
+          items: [
+            { color: "#EDF8E9", label: "$1.15 – $59.10" },
+            { color: "#BAE4B3", label: "$59.11 – $124.67" },
+            { color: "#74C476", label: "$124.68 – $219.42" },
+            { color: "#31A354", label: "$219.43 – $407.03" },
+            { color: "#006D2C", label: "$407.04 – $709.32" },
+            { color: "#E2E8F0", label: "Sin datos (281 UPD)" }
+          ]
+        },
+        "median": {
+          label: "Opción 4 · Mediana Robusta 2020–2026 (P2_MED · resistente a atípicos)",
+          expr: makeNumericStepExpr("P2_MED", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#E2E8F0"),
+          items: [
+            { color: "#FEF0D9", label: "Mediana ≤ $50" },
+            { color: "#FDCC8A", label: "Mediana $50–$100" },
+            { color: "#FC8D59", label: "Mediana $100–$175" },
+            { color: "#E34A33", label: "Mediana $175–$300" },
+            { color: "#B30000", label: "Mediana > $300" },
+            { color: "#E2E8F0", label: "Sin datos (281 UPD)" }
+          ]
+        }
+      },
+      "auto_upd_2007_2019": {
+        "homologated": {
+          label: "Opción 1 · Escala Homologada Comparable (5 rangos fijos USD · P1_PROM)",
+          expr: makeNumericStepExpr("P1_PROM", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#E2E8F0"),
+          items: [
+            { color: "#FEF0D9", label: "Bajo (≤ $50 · 55 UPD)" },
+            { color: "#FDCC8A", label: "Medio-Bajo ($50–$100 · 37 UPD)" },
+            { color: "#FC8D59", label: "Medio ($100–$175 · 41 UPD)" },
+            { color: "#E34A33", label: "Medio-Alto ($175–$300 · 16 UPD)" },
+            { color: "#B30000", label: "Alto (> $300 · 8 UPD)" },
+            { color: "#E2E8F0", label: "Sin trámites 2007–2019 (269 UPD)" }
+          ]
+        },
+        "quantiles": {
+          label: "Opción 2 · Quintiles 2007–2019 (P20, P40, P60, P80 · P1_PROM)",
+          expr: makeNumericStepExpr("P1_PROM", [32.51, 55.32, 104.38, 144.92], ["#EFF3FF", "#BDD7E7", "#6BAED6", "#3182BD", "#08519C"], "#E2E8F0"),
+          items: [
+            { color: "#EFF3FF", label: "Q1 (≤ $32.51)" },
+            { color: "#BDD7E7", label: "Q2 ($32.52–$55.32)" },
+            { color: "#6BAED6", label: "Q3 ($55.33–$104.38)" },
+            { color: "#3182BD", label: "Q4 ($104.39–$144.92)" },
+            { color: "#08519C", label: "Q5 (> $144.92)" },
+            { color: "#E2E8F0", label: "Sin datos (269 UPD)" }
+          ]
+        },
+        "jenks": {
+          label: "Opción 3 · Rupturas Naturales con Control de Outliers (Jenks · P1_PROM)",
+          expr: makeNumericStepExpr("P1_PROM", [35.72, 90.47, 186.16, 467.41], ["#EDF8E9", "#BAE4B3", "#74C476", "#31A354", "#006D2C"], "#E2E8F0"),
+          items: [
+            { color: "#EDF8E9", label: "$0.03 – $35.72" },
+            { color: "#BAE4B3", label: "$35.73 – $90.47" },
+            { color: "#74C476", label: "$90.48 – $186.16" },
+            { color: "#31A354", label: "$186.17 – $467.41" },
+            { color: "#006D2C", label: "> $467.41 (incluye 4 atípicos)" },
+            { color: "#E2E8F0", label: "Sin datos (269 UPD)" }
+          ]
+        },
+        "median": {
+          label: "Opción 4 · Mediana Robusta 2007–2019 (P1_MED · corrige los 4 outliers >$7.000)",
+          expr: makeNumericStepExpr("P1_MED", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#E2E8F0"),
+          items: [
+            { color: "#FEF0D9", label: "Mediana ≤ $50 (71 UPD)" },
+            { color: "#FDCC8A", label: "Mediana $50–$100 (43 UPD)" },
+            { color: "#FC8D59", label: "Mediana $100–$175 (36 UPD)" },
+            { color: "#E34A33", label: "Mediana $175–$300 (4 UPD)" },
+            { color: "#B30000", label: "Mediana > $300 (3 UPD)" },
+            { color: "#E2E8F0", label: "Sin datos (269 UPD)" }
+          ]
+        }
+      },
+      "auto_upd_tendencia": {
+        "diverging": {
+          label: "Opción 1 · Categorías de Tendencia Interperíodo (TENDENCIA)",
+          expr: [
+            "match",
+            ["get", "TENDENCIA"],
+            "Aumento", "#16A34A",
+            "Disminución", "#DC2626",
+            "Solo 2020-2026", "#0284C7",
+            "Solo 2007-2019", "#D97706",
+            "#E2E8F0"
+          ],
+          items: [
+            { color: "#16A34A", label: "Aumento 2020–26 vs 2007–19 (79 UPD)" },
+            { color: "#DC2626", label: "Disminución (37 UPD)" },
+            { color: "#0284C7", label: "Nuevas zonas solo 2020–2026 (30 UPD)" },
+            { color: "#D97706", label: "Registro solo 2007–2019 (41 UPD)" },
+            { color: "#E2E8F0", label: "Sin datos (239 UPD)" }
+          ]
+        },
+        "pct_var": {
+          label: "Opción 2 · Tasa de Variación Porcentual Divergente (PCT_VAR %)",
+          expr: [
+            "case",
+            ["all", ["has", "PCT_VAR"], ["!=", ["get", "PCT_VAR"], null]],
+            [
+              "step",
+              ["to-number", ["get", "PCT_VAR"]],
+              "#B91C1C",
+              -20, "#FCA5A5",
+              0, "#BBF7D0",
+              50, "#22C55E",
+              150, "#15803D"
+            ],
+            "#E2E8F0"
+          ],
+          items: [
+            { color: "#B91C1C", label: "Caída fuerte (≤ -20%)" },
+            { color: "#FCA5A5", label: "Ajuste moderado (-20% a 0%)" },
+            { color: "#BBF7D0", label: "Plusvalía moderada (0% a +50%)" },
+            { color: "#22C55E", label: "Plusvalía alta (+50% a +150%)" },
+            { color: "#15803D", label: "Plusvalía muy alta (> +150%)" },
+            { color: "#E2E8F0", label: "Sin par comparable (310 UPD)" }
+          ]
+        }
+      }
+    };
+
+    var AUTO_RIESGO_EXPR = [
+      "match",
+      ["to-string", ["coalesce", ["get", "nivel_riesgo"], ""]],
+      "Muy Alto", "#DC2626",
+      "Alto", "#F97316",
+      "Medio", "#FACC15",
+      "Bajo", "#16A34A",
+      "#94A3B8"
+    ];
+
+    var AUTO_RIESGO_ITEMS = [
+      { color: "#DC2626", label: "Muy Alto" },
+      { color: "#F97316", label: "Alto" },
+      { color: "#FACC15", label: "Medio" },
+      { color: "#16A34A", label: "Bajo" }
+    ];
+
+    function buildCategoriesMatchExpr(attrName, categories, fallbackHex) {
+      var arr = ["match", ["to-string", ["coalesce", ["get", attrName], ""]]];
+      var seen = {};
+      (categories || []).forEach(function (cat) {
+        if (!cat) return;
+        var k = String(cat.value);
+        if (!seen[k]) {
+          seen[k] = true;
+          arr.push(k, cat.color || "#007F8B");
+        }
+      });
+      arr.push(fallbackHex || "#94A3B8");
+      return arr.length >= 5 ? arr : (fallbackHex || "#007F8B");
+    }
+
+    function parseExpressionLegendItems(expr) {
+      if (!Array.isArray(expr) || !expr.length) return [];
+      var op = expr[0];
+      var out = [];
+      if (op === "case" && Array.isArray(expr[2])) {
+        return parseExpressionLegendItems(expr[2]);
+      }
+      if (op === "match" && expr.length >= 5) {
+        for (var i = 2; i < expr.length - 1; i += 2) {
+          var valLbl = Array.isArray(expr[i]) ? expr[i].join(", ") : String(expr[i]);
+          var col = expr[i + 1];
+          if (typeof col === "string" && col.charAt(0) === "#") {
+            out.push({ color: col, label: valLbl });
+          }
+        }
+      } else if (op === "step" && expr.length >= 5) {
+        if (typeof expr[2] === "string" && expr[2].charAt(0) === "#") {
+          out.push({ color: expr[2], label: "< " + expr[3] });
+        }
+        for (var j = 3; j < expr.length - 1; j += 2) {
+          var brk = expr[j];
+          var nextBrk = j + 2 < expr.length ? expr[j + 2] : null;
+          var cHex = expr[j + 1];
+          if (typeof cHex === "string" && cHex.charAt(0) === "#") {
+            out.push({ color: cHex, label: nextBrk !== null ? (brk + " – " + nextBrk) : ("≥ " + brk) });
+          }
+        }
+      } else if (op === "interpolate" && expr.length >= 7) {
+        for (var m = 3; m < expr.length - 1; m += 2) {
+          var stopVal = expr[m];
+          var stopCol = expr[m + 1];
+          if (typeof stopCol === "string" && stopCol.charAt(0) === "#") {
+            out.push({ color: stopCol, label: String(stopVal) });
+          }
+        }
+      }
+      return out;
+    }
+
+    function resolveThematicFillExpr(colorSpec, schemeKey, styleOpts) {
+      var opts = styleOpts || {};
+      if (typeof colorSpec === "string" && THEMATIC_SCHEMES[colorSpec]) {
+        var group = THEMATIC_SCHEMES[colorSpec];
+        var chosen = (schemeKey && group[schemeKey]) || group[Object.keys(group)[0]];
+        return chosen ? chosen.expr : "#007F8B";
+      }
+      if (colorSpec === "auto_riesgo") {
+        return AUTO_RIESGO_EXPR;
+      }
+      if (Array.isArray(opts.fill_color_expression)) {
+        return opts.fill_color_expression;
+      }
+      if (Array.isArray(colorSpec)) {
+        return colorSpec;
+      }
+      var catAttr = opts.fill_color_attribute || opts.fill_color_property;
+      if (catAttr && Array.isArray(opts.fill_color_categories) && opts.fill_color_categories.length) {
+        var fb = opts.fill_color_fallback || (typeof colorSpec === "string" && colorSpec.charAt(0) === "#" ? colorSpec : "#94A3B8");
+        return buildCategoriesMatchExpr(catAttr, opts.fill_color_categories, fb);
+      }
+      return colorSpec || "#007F8B";
+    }
+
+    function resolveThematicStrokeExpr(strokeSpec, styleOpts) {
+      var opts = styleOpts || {};
+      if (Array.isArray(opts.stroke_color_expression)) {
+        return opts.stroke_color_expression;
+      }
+      if (strokeSpec === "auto_riesgo") {
+        return AUTO_RIESGO_EXPR;
+      }
+      if (Array.isArray(strokeSpec)) {
+        return strokeSpec;
+      }
+      return strokeSpec || "#14283F";
+    }
+
+    function extractLayerLegendMeta(lyr) {
+      var styleOpts = (lyr && lyr.style) || {};
+      var fillColor = styleOpts.fill_color;
+      var strokeColor = styleOpts.stroke_color || "#14283F";
+      if (typeof fillColor === "string" && THEMATIC_SCHEMES[fillColor]) {
+        var group = THEMATIC_SCHEMES[fillColor];
+        var curScheme = styleOpts.active_scheme || styleOpts.default_scheme || Object.keys(group)[0];
+        var schemeObj = group[curScheme] || group[Object.keys(group)[0]];
+        if (schemeObj) {
+          var parts = schemeObj.label.split("·");
+          return {
+            badge: parts.length > 1 ? parts[0].trim() : "Opción",
+            subtitle: parts[1] ? parts.slice(1).join("·").trim() : schemeObj.label,
+            items: schemeObj.items || []
+          };
+        }
+      }
+      if (Array.isArray(styleOpts.fill_color_categories) && styleOpts.fill_color_categories.length) {
+        return {
+          badge: lyr.format === "xyz_or_cog" ? "Clases ráster" : "Categorías",
+          subtitle: styleOpts.legend_subtitle || "",
+          items: styleOpts.fill_color_categories.map(function (c) {
+            return { color: c.color || "#007F8B", label: String(c.label !== undefined ? c.label : c.value) };
+          })
+        };
+      }
+      if (Array.isArray(styleOpts.legend) && styleOpts.legend.length) {
+        return {
+          badge: "Escala temática",
+          subtitle: "",
+          items: styleOpts.legend.map(function (c) {
+            return { color: c.color || "#007F8B", label: String(c.label || c.value || "") };
+          })
+        };
+      }
+      if (fillColor === "auto_riesgo" || strokeColor === "auto_riesgo") {
+        return { badge: "Nivel de riesgo", subtitle: "Clasificación de amenaza/exposición", items: AUTO_RIESGO_ITEMS };
+      }
+      var exprItems = parseExpressionLegendItems(styleOpts.fill_color_expression || fillColor || styleOpts.stroke_color_expression);
+      if (exprItems.length) {
+        return { badge: "Escala continua", subtitle: "", items: exprItems };
+      }
+      if (lyr.format === "xyz_or_cog" || lyr.format === "image_overlay") {
+        return {
+          badge: "Ráster georreferenciado",
+          subtitle: "",
+          items: [{ color: typeof fillColor === "string" && fillColor.charAt(0) === "#" ? fillColor : "#0EA5E9", label: lyr.title }]
+        };
+      }
+      if (styleOpts.fill_opacity === 0 || styleOpts.interactive_fill === false) {
+        return {
+          badge: "Límite",
+          subtitle: "",
+          items: [{ color: typeof strokeColor === "string" ? strokeColor : "#14283F", label: "Límite territorial / referencia", isOutline: true }]
+        };
+      }
+      return {
+        badge: "Vectorial",
+        subtitle: "",
+        items: [{ color: typeof fillColor === "string" ? fillColor : "#007F8B", label: lyr.title }]
+      };
+    }
+
+    function populateSwatchesBoxDom(containerEl, items) {
+      if (!containerEl || !Array.isArray(items) || !items.length) return;
+      containerEl.innerHTML = "";
+      items.forEach(function (it) {
+        var chip = document.createElement("span");
+        chip.style.display = "inline-flex";
+        chip.style.alignItems = "center";
+        chip.style.gap = "0.28rem";
+        chip.style.fontSize = "0.71rem";
+        chip.style.padding = "0.12rem 0.38rem";
+        chip.style.background = "#FFFFFF";
+        chip.style.border = "1px solid #CBD5E1";
+        chip.style.borderRadius = "4px";
+        var sw = document.createElement("span");
+        sw.style.display = "inline-block";
+        sw.style.width = "10px";
+        sw.style.height = "10px";
+        sw.style.borderRadius = "2px";
+        if (it.isOutline) {
+          sw.style.background = "transparent";
+          sw.style.border = "2px solid " + (it.color || "#14283F");
+        } else {
+          sw.style.background = it.color || "#007F8B";
+          sw.style.border = "1px solid rgba(15,23,42,0.25)";
+        }
+        var txt = document.createElement("span");
+        txt.textContent = it.label;
+        chip.appendChild(sw);
+        chip.appendChild(txt);
+        containerEl.appendChild(chip);
+      });
+    }
+
+    function renderLegendSwatchesDom(containerEl, colorSpec, schemeKey, lyrObj) {
+      if (!containerEl) return;
+      if (typeof colorSpec === "string" && THEMATIC_SCHEMES[colorSpec]) {
+        var group = THEMATIC_SCHEMES[colorSpec];
+        var chosen = (schemeKey && group[schemeKey]) || group[Object.keys(group)[0]];
+        if (chosen && Array.isArray(chosen.items)) {
+          populateSwatchesBoxDom(containerEl, chosen.items);
+        }
+        return;
+      }
+      if (lyrObj) {
+        var meta = extractLayerLegendMeta(lyrObj);
+        populateSwatchesBoxDom(containerEl, meta.items);
+      }
+    }
+
+    function setLayerThematicScheme(layerId, newScheme) {
+      var lyr = (cfg.layers || []).find(function (l) { return l.id === layerId; });
+      if (!lyr) return;
+      var styleOpts = lyr.style || {};
+      var fillColor = styleOpts.fill_color;
+      if (!THEMATIC_SCHEMES[fillColor]) return;
+
+      styleOpts.active_scheme = newScheme;
+      if (lyr.style) lyr.style.active_scheme = newScheme;
+
+      var schemeSelect = document.querySelector('[data-layer-scheme="' + layerId + '"]');
+      if (schemeSelect && schemeSelect.value !== newScheme) {
+        schemeSelect.value = newScheme;
+      }
+
+      var pillBox = document.querySelector('[data-pill-layer="' + layerId + '"]');
+      if (pillBox) {
+        var pills = pillBox.querySelectorAll(".gv-scheme-pill");
+        pills.forEach(function (p) {
+          if (p.getAttribute("data-scheme-val") === newScheme) {
+            p.classList.add("is-active");
+          } else {
+            p.classList.remove("is-active");
+          }
+        });
+      }
+
+      var swatchBox = document.querySelector('[data-layer-swatches="' + layerId + '"]');
+      if (swatchBox) {
+        renderLegendSwatchesDom(swatchBox, fillColor, newScheme);
+      }
+
+      if (lyr.format === "image_overlay" && mapInstance && mapInstance.getSource("src-" + layerId)) {
+        var targetRel = (newScheme === "potencial_continuo" && lyr.alt_source_path) ? lyr.alt_source_path : lyr.source_path;
+        var resolvedImg = /^https?:\/\//i.test(targetRel)
+          ? targetRel
+          : new URL(targetRel, window.location.origin + baseUrl).href;
+        var bds = Array.isArray(lyr.bounds) && lyr.bounds.length === 4 ? lyr.bounds : null;
+        var srcObj = mapInstance.getSource("src-" + layerId);
+        if (srcObj && typeof srcObj.updateImage === "function" && bds) {
+          srcObj.updateImage({
+            url: resolvedImg,
+            coordinates: [
+              [bds[0], bds[3]],
+              [bds[2], bds[3]],
+              [bds[2], bds[1]],
+              [bds[0], bds[1]]
+            ]
+          });
+        }
+      } else if (mapInstance && mapInstance.getLayer(layerId + "-fill")) {
+        mapInstance.setPaintProperty(layerId + "-fill", "fill-color", resolveThematicFillExpr(fillColor, newScheme));
+      }
+
+      updateFloatingMapLegend();
+    }
+
+    function updateFloatingMapLegend() {
+      var legendBody = document.getElementById("gv-legend-body");
+      if (!legendBody) return;
+      var activeHtml = [];
+
+      (cfg.layers || []).forEach(function (lyr) {
+        if (!lyr.source_path) return;
+        var chk = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
+        var isVisible = chk ? chk.checked : (lyr.style && lyr.style.visible_by_default !== false);
+        if (!isVisible) return;
+
+        var meta = extractLayerLegendMeta(lyr);
+        var swatchesHtml = (meta.items || []).map(function (it) {
+          var boxStyle = it.isOutline
+            ? ('background:transparent;border:2px solid ' + (it.color || '#14283F') + ';')
+            : ('background:' + (it.color || '#007F8B') + ';');
+          return '<div class="gv-legend-chip">' +
+            '<span class="gv-legend-color-box" style="' + boxStyle + '"></span>' +
+            '<span class="gv-legend-chip-label">' + it.label + '</span>' +
+          '</div>';
+        }).join("");
+
+        activeHtml.push(
+          '<div class="gv-legend-layer-card">' +
+            '<div class="gv-legend-layer-head">' +
+              '<span class="gv-legend-layer-name">' + lyr.title + '</span>' +
+              '<span class="gv-legend-scheme-badge">' + (meta.badge || "Capa") + '</span>' +
+            '</div>' +
+            (meta.subtitle ? '<div style="font-size:0.69rem;color:#475569;margin-bottom:0.25rem;">' + meta.subtitle + '</div>' : '') +
+            '<div class="gv-legend-swatches-grid">' + swatchesHtml + '</div>' +
+          '</div>'
+        );
+      });
+
+      if (activeHtml.length === 0) {
+        legendBody.innerHTML = '<div style="font-size:0.73rem;color:var(--c-text-muted);font-style:italic;padding:0.25rem 0;">No hay capas temáticas activas. Activa una capa en el panel izquierdo para ver su simbología.</div>';
+      } else {
+        legendBody.innerHTML = activeHtml.join("");
+      }
+    }
+
+    var SCENARIO_DEFS = {
+      "gee-malla-250m": {
+        activeLayers: ["sv-amss-gee-malla-250m"],
+        schemes: { "sv-amss-gee-malla-250m": "homologated" }
+      },
+      "gee-malla-tipologia": {
+        activeLayers: ["sv-amss-gee-malla-250m"],
+        schemes: { "sv-amss-gee-malla-250m": "tipologia" }
+      },
+      "gee-upd-425": {
+        activeLayers: ["sv-amss-gee-upd-425"],
+        schemes: { "sv-amss-gee-upd-425": "homologated" }
+      },
+      "gee-pixel-20m": {
+        activeLayers: ["sv-amss-gee-pixel-20m"],
+        schemes: { "sv-amss-gee-pixel-20m": "urbano_desarrollable" }
+      },
+      "mercado-2025-homol": {
+        activeLayers: ["sv-amss-lisa-precios-2025"],
+        schemes: { "sv-amss-lisa-precios-2025": "homologated" }
+      },
+      "mercado-2025-lisa": {
+        activeLayers: ["sv-amss-lisa-precios-2025"],
+        schemes: { "sv-amss-lisa-precios-2025": "lisa_sig" }
+      },
+      "opamss-p2-homol": {
+        activeLayers: ["sv-amss-upd-2020-2026"],
+        schemes: { "sv-amss-upd-2020-2026": "homologated" }
+      },
+      "opamss-p1-homol": {
+        activeLayers: ["sv-amss-upd-2007-2019"],
+        schemes: { "sv-amss-upd-2007-2019": "homologated" }
+      },
+      "opamss-tendencia": {
+        activeLayers: ["sv-amss-upd-tendencia"],
+        schemes: { "sv-amss-upd-tendencia": "diverging" }
+      }
+    };
+
+    function applyScenario(scenarioKey) {
+      var def = SCENARIO_DEFS[scenarioKey];
+      if (!def) return;
+
+      var scenarioBtns = document.querySelectorAll(".gv-scenario-btn");
+      scenarioBtns.forEach(function (btn) {
+        if (btn.getAttribute("data-gv-scenario") === scenarioKey) {
+          btn.classList.add("is-active", "btn-primary");
+          btn.classList.remove("btn-outline");
+        } else {
+          btn.classList.remove("is-active", "btn-primary");
+          btn.classList.add("btn-outline");
+        }
+      });
+
+      var soilLayerIds = [
+        "sv-amss-gee-malla-250m",
+        "sv-amss-gee-upd-425",
+        "sv-amss-gee-pixel-20m",
+        "sv-amss-lisa-precios-2025",
+        "sv-amss-upd-2020-2026",
+        "sv-amss-upd-2007-2019",
+        "sv-amss-upd-tendencia"
+      ];
+
+      soilLayerIds.forEach(function (lid) {
+        var shouldShow = def.activeLayers.indexOf(lid) !== -1;
+        var chk = document.querySelector('[data-layer-toggle="' + lid + '"]');
+        if (chk) {
+          chk.setAttribute("data-user-modified", "true");
+          chk.checked = shouldShow;
+        }
+        if (mapInstance) {
+          var vis = shouldShow ? "visible" : "none";
+          ["-fill", "-line", "-pt", "-raster"].forEach(function (suf) {
+            if (mapInstance.getLayer(lid + suf)) {
+              mapInstance.setLayoutProperty(lid + suf, "visibility", vis);
+            }
+          });
+        }
+        if (def.schemes && def.schemes[lid]) {
+          setLayerThematicScheme(lid, def.schemes[lid]);
+        }
+      });
+
+      updateFloatingMapLegend();
+    }
+
+    function renderGeoJsonSourceLayers(srcId, prefixId, dataOrUrl, fillColor, fillOpacity, strokeColor, strokeWidth, badgeLabel, layerTitle, styleOpts) {
+      var opts = styleOpts || {};
+      var chkEl = document.querySelector('[data-layer-toggle="' + prefixId + '"]');
+      var initVis = chkEl ? (chkEl.checked ? "visible" : "none") : (opts.visible_by_default === false ? "none" : "visible");
+      var effectiveFill = resolveThematicFillExpr(fillColor, opts.active_scheme || opts.default_scheme, opts);
+      var effectiveStroke = resolveThematicStrokeExpr(strokeColor, opts);
       if (mapInstance.getLayer(prefixId + "-fill")) mapInstance.removeLayer(prefixId + "-fill");
       if (mapInstance.getLayer(prefixId + "-line")) mapInstance.removeLayer(prefixId + "-line");
       if (mapInstance.getLayer(prefixId + "-pt")) mapInstance.removeLayer(prefixId + "-pt");
       if (mapInstance.getSource(srcId)) mapInstance.removeSource(srcId);
+
+      var isBoundary = opts.interactive_fill === false;
+      var beforeLayerId = findReferenceOverlayLayerId(isBoundary);
+      var linePaint = strokeWidth <= 0.35
+        ? {
+            "line-color": effectiveStroke,
+            "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.04, 11.5, 0.14, 13.5, 0.35, 16, 0.85],
+            "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.18, 12, 0.38, 15, 0.65]
+          }
+        : { "line-color": effectiveStroke, "line-width": strokeWidth };
+      if (Array.isArray(opts.line_dasharray) && opts.line_dasharray.length >= 2) {
+        linePaint["line-dasharray"] = opts.line_dasharray;
+      }
 
       mapInstance.addSource(srcId, { type: "geojson", data: dataOrUrl });
       mapInstance.addLayer({
         id: prefixId + "-fill",
         type: "fill",
         source: srcId,
-        filter: ["==", ["geometry-type"], "Polygon"],
-        paint: { "fill-color": fillColor, "fill-opacity": fillOpacity }
-      });
+        filter: ["match", ["geometry-type"], ["Polygon", "MultiPolygon"], true, false],
+        layout: { visibility: initVis },
+        paint: { "fill-color": effectiveFill, "fill-opacity": fillOpacity }
+      }, beforeLayerId);
       mapInstance.addLayer({
         id: prefixId + "-line",
         type: "line",
         source: srcId,
-        paint: { "line-color": strokeColor, "line-width": strokeWidth }
-      });
+        layout: { visibility: initVis },
+        paint: linePaint
+      }, beforeLayerId);
       mapInstance.addLayer({
         id: prefixId + "-pt",
         type: "circle",
         source: srcId,
-        filter: ["==", ["geometry-type"], "Point"],
+        filter: ["match", ["geometry-type"], ["Point", "MultiPoint"], true, false],
+        layout: { visibility: initVis },
         paint: {
-          "circle-radius": 6,
-          "circle-color": fillColor,
-          "circle-stroke-color": strokeColor,
-          "circle-stroke-width": 2
+          "circle-radius": opts.circle_radius || 6,
+          "circle-color": effectiveFill,
+          "circle-stroke-color": typeof effectiveStroke === "string" ? effectiveStroke : "#14283F",
+          "circle-stroke-width": 1.8
         }
-      });
+      }, beforeLayerId);
 
-      attachFeatureClickPopup(prefixId + "-fill", badgeLabel, layerTitle);
+      if (fillOpacity > 0.01 && opts.interactive_fill !== false) {
+        attachFeatureClickPopup(prefixId + "-fill", badgeLabel, layerTitle);
+      }
+      if (strokeWidth > 1.2 && fillOpacity <= 0.01 && opts.interactive_fill !== false) {
+        attachFeatureClickPopup(prefixId + "-line", badgeLabel, layerTitle);
+      }
       attachFeatureClickPopup(prefixId + "-pt", badgeLabel, layerTitle);
+    }
+
+    function wireThematicControlsForLayer(lyr, fillColor, styleOpts) {
+      var swatchBox = document.querySelector('[data-layer-swatches="' + lyr.id + '"]');
+      if (typeof fillColor !== "string" || !THEMATIC_SCHEMES[fillColor]) {
+        renderLegendSwatchesDom(swatchBox, fillColor, null, lyr);
+        return;
+      }
+      var schemeSelect = document.querySelector('[data-layer-scheme="' + lyr.id + '"]');
+      var initScheme = (styleOpts.active_scheme || styleOpts.default_scheme || Object.keys(THEMATIC_SCHEMES[fillColor])[0]);
+      renderLegendSwatchesDom(swatchBox, fillColor, initScheme, lyr);
+      if (schemeSelect) {
+        schemeSelect.value = initScheme;
+        schemeSelect.onchange = function () {
+          setLayerThematicScheme(lyr.id, schemeSelect.value);
+        };
+      }
+      var pillBox = document.querySelector('[data-pill-layer="' + lyr.id + '"]');
+      if (pillBox) {
+        var pills = pillBox.querySelectorAll(".gv-scheme-pill");
+        pills.forEach(function (pill) {
+          if (pill.getAttribute("data-scheme-val") === initScheme) {
+            pill.classList.add("is-active");
+          } else {
+            pill.classList.remove("is-active");
+          }
+          pill.onclick = function () {
+            var sVal = pill.getAttribute("data-scheme-val");
+            if (sVal) setLayerThematicScheme(lyr.id, sVal);
+          };
+        });
+      }
     }
 
     function addActiveProjectLayers() {
@@ -1375,71 +2223,77 @@
 
         if (lyr.format === "geojson") {
           var fillColor = (lyr.style && lyr.style.fill_color) || "#007F8B";
-          var fillColorAttribute = lyr.style && lyr.style.fill_color_attribute;
-          var fillColorCategories = lyr.style && lyr.style.fill_color_categories;
-          if (fillColorAttribute && Array.isArray(fillColorCategories) && fillColorCategories.length) {
-            fillColor = ["match", ["get", fillColorAttribute]];
-            fillColorCategories.forEach(function (category) {
-              fillColor.push(category.value, category.color);
-            });
-            fillColor.push((fillColorCategories[fillColorCategories.length - 1] || {}).color || "#007F8B");
-          }
           var fillOpacity = (lyr.style && lyr.style.fill_opacity) !== undefined ? lyr.style.fill_opacity : 0.22;
           var strokeColor = (lyr.style && lyr.style.stroke_color) || "#14283F";
-          var strokeWidth = (lyr.style && lyr.style.stroke_width) || 2;
+          var strokeWidth = (lyr.style && lyr.style.stroke_width) !== undefined ? lyr.style.stroke_width : 2;
+          var isVisibleByDefault = !(lyr.style && lyr.style.visible_by_default === false);
+          var styleOpts = Object.assign({}, lyr.style || {});
 
-          fetch(resolvedSource)
-            .then(function (r) {
-              return r.ok ? r.json() : null;
-            })
-            .then(function (gj) {
-              if (!gj) return;
-              renderGeoJsonSourceLayers(
-                srcId,
-                lyr.id,
-                gj,
-                fillColor,
-                fillOpacity,
-                strokeColor,
-                strokeWidth,
-                "CAPA DEL PROYECTO · " + (lyr.status || "").toUpperCase(),
-                lyr.title
-              );
-              if (!initialBoundsFitted) {
-                var b = computeGeoJsonBounds(gj);
-                if (b) {
-                  if (!combinedBounds) {
-                    combinedBounds = [[b[0][0], b[0][1]], [b[1][0], b[1][1]]];
-                  } else {
-                    combinedBounds[0][0] = Math.min(combinedBounds[0][0], b[0][0]);
-                    combinedBounds[0][1] = Math.min(combinedBounds[0][1], b[0][1]);
-                    combinedBounds[1][0] = Math.max(combinedBounds[1][0], b[1][0]);
-                    combinedBounds[1][1] = Math.max(combinedBounds[1][1], b[1][1]);
-                  }
-                  mapInstance.fitBounds(combinedBounds, { padding: 42, maxZoom: 15.2, duration: 0 });
+          var mountGeoJson = function (gj) {
+            if (!gj) return;
+            loadedProjectGeoJsons[lyr.id] = gj;
+            renderGeoJsonSourceLayers(
+              srcId,
+              lyr.id,
+              gj,
+              fillColor,
+              fillOpacity,
+              strokeColor,
+              strokeWidth,
+              "CAPA DEL PROYECTO · " + (lyr.status || "").toUpperCase(),
+              lyr.title,
+              styleOpts
+            );
+            if (!initialBoundsFitted && isVisibleByDefault) {
+              var b = computeGeoJsonBounds(gj);
+              if (b) {
+                if (!combinedBounds) {
+                  combinedBounds = [[b[0][0], b[0][1]], [b[1][0], b[1][1]]];
+                } else {
+                  combinedBounds[0][0] = Math.min(combinedBounds[0][0], b[0][0]);
+                  combinedBounds[0][1] = Math.min(combinedBounds[0][1], b[0][1]);
+                  combinedBounds[1][0] = Math.max(combinedBounds[1][0], b[1][0]);
+                  combinedBounds[1][1] = Math.max(combinedBounds[1][1], b[1][1]);
                 }
+                mapInstance.fitBounds(combinedBounds, { padding: 42, maxZoom: 15.2, duration: 0 });
               }
-            })
-            .catch(function (err) {
-              if (window.console && console.warn) console.warn("Error al cargar capa del geovisor:", lyr.id, err);
-            });
+            }
+          };
+
+          if (loadedProjectGeoJsons[lyr.id]) {
+            mountGeoJson(loadedProjectGeoJsons[lyr.id]);
+          } else {
+            fetch(resolvedSource)
+              .then(function (r) {
+                return r.ok ? r.json() : null;
+              })
+              .then(mountGeoJson)
+              .catch(function (err) {
+                if (window.console && console.warn) console.warn("Error al cargar capa del geovisor:", lyr.id, err);
+              });
+          }
 
           var chk = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
           if (chk) {
             chk.disabled = false;
-            chk.checked = true;
+            if (!chk.hasAttribute("data-user-modified")) {
+              chk.checked = isVisibleByDefault;
+            }
             chk.onchange = function () {
+              chk.setAttribute("data-user-modified", "true");
               var vis = chk.checked ? "visible" : "none";
               ["-fill", "-line", "-pt"].forEach(function (suf) {
                 if (mapInstance.getLayer(lyr.id + suf)) {
                   mapInstance.setLayoutProperty(lyr.id + suf, "visibility", vis);
                 }
               });
+              updateFloatingMapLegend();
             };
           }
           var slider = document.querySelector('[data-layer-opacity="' + lyr.id + '"]');
           if (slider) {
             slider.disabled = false;
+            slider.value = String(fillOpacity);
             slider.oninput = function () {
               var op = parseFloat(slider.value);
               if (mapInstance.getLayer(lyr.id + "-fill")) {
@@ -1447,6 +2301,138 @@
               }
             };
           }
+
+          wireThematicControlsForLayer(lyr, fillColor, styleOpts);
+        } else if (lyr.format === "image_overlay" && Array.isArray(lyr.bounds) && lyr.bounds.length === 4) {
+          var imgFillColor = (lyr.style && lyr.style.fill_color) || "auto_gee_pixel_20m";
+          var imgOpacity = (lyr.style && lyr.style.fill_opacity) !== undefined ? lyr.style.fill_opacity : 0.85;
+          var imgVisDefault = !(lyr.style && lyr.style.visible_by_default === false);
+          var imgStyleOpts = Object.assign({}, lyr.style || {});
+          var activeImgScheme = imgStyleOpts.active_scheme || imgStyleOpts.default_scheme || "urbano_desarrollable";
+          var targetImgRel = (activeImgScheme === "potencial_continuo" && lyr.alt_source_path) ? lyr.alt_source_path : lyr.source_path;
+          var resolvedImgUrl = /^https?:\/\//i.test(targetImgRel)
+            ? targetImgRel
+            : new URL(targetImgRel, window.location.origin + baseUrl).href;
+
+          var chkImg = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
+          if (chkImg) {
+            chkImg.disabled = false;
+            if (!chkImg.hasAttribute("data-user-modified")) {
+              chkImg.checked = imgVisDefault;
+            }
+            chkImg.onchange = function () {
+              chkImg.setAttribute("data-user-modified", "true");
+              var vis = chkImg.checked ? "visible" : "none";
+              if (mapInstance.getLayer(lyr.id + "-raster")) {
+                mapInstance.setLayoutProperty(lyr.id + "-raster", "visibility", vis);
+              }
+              updateFloatingMapLegend();
+            };
+          }
+          var initImgVis = chkImg ? (chkImg.checked ? "visible" : "none") : (imgVisDefault ? "visible" : "none");
+          var b = lyr.bounds; // [west, south, east, north]
+          var quad = [
+            [b[0], b[3]],
+            [b[2], b[3]],
+            [b[2], b[1]],
+            [b[0], b[1]]
+          ];
+
+          if (mapInstance.getLayer(lyr.id + "-raster")) mapInstance.removeLayer(lyr.id + "-raster");
+          if (mapInstance.getSource(srcId)) mapInstance.removeSource(srcId);
+          mapInstance.addSource(srcId, {
+            type: "image",
+            url: resolvedImgUrl,
+            coordinates: quad
+          });
+          mapInstance.addLayer({
+            id: lyr.id + "-raster",
+            type: "raster",
+            source: srcId,
+            layout: { visibility: initImgVis },
+            paint: { "raster-opacity": imgOpacity, "raster-resampling": "linear" }
+          }, findReferenceOverlayLayerId(false));
+
+          var sliderImg = document.querySelector('[data-layer-opacity="' + lyr.id + '"]');
+          if (sliderImg) {
+            sliderImg.disabled = false;
+            sliderImg.value = String(imgOpacity);
+            sliderImg.oninput = function () {
+              var op = parseFloat(sliderImg.value);
+              if (mapInstance.getLayer(lyr.id + "-raster")) {
+                mapInstance.setPaintProperty(lyr.id + "-raster", "raster-opacity", op);
+              }
+            };
+          }
+
+          wireThematicControlsForLayer(lyr, imgFillColor, imgStyleOpts);
+        } else if (
+          lyr.format === "xyz_or_cog" &&
+          lyr.preview_image_path &&
+          ((Array.isArray(lyr.image_coordinates) && lyr.image_coordinates.length === 4) ||
+            (Array.isArray(lyr.bounds) && lyr.bounds.length === 4))
+        ) {
+          var cogStyle = Object.assign({}, lyr.style || {});
+          var cogOpacity = cogStyle.raster_opacity !== undefined
+            ? cogStyle.raster_opacity
+            : (cogStyle.fill_opacity !== undefined ? cogStyle.fill_opacity : 0.85);
+          var cogVisDefault = !(cogStyle.visible_by_default === false);
+          var resolvedCogPreview = /^https?:\/\//i.test(lyr.preview_image_path)
+            ? lyr.preview_image_path
+            : new URL(lyr.preview_image_path, window.location.origin + baseUrl).href;
+
+          var chkCog = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
+          if (chkCog) {
+            chkCog.disabled = false;
+            if (!chkCog.hasAttribute("data-user-modified")) {
+              chkCog.checked = cogVisDefault;
+            }
+            chkCog.onchange = function () {
+              chkCog.setAttribute("data-user-modified", "true");
+              var vis = chkCog.checked ? "visible" : "none";
+              if (mapInstance.getLayer(lyr.id + "-raster")) {
+                mapInstance.setLayoutProperty(lyr.id + "-raster", "visibility", vis);
+              }
+              updateFloatingMapLegend();
+            };
+          }
+          var initCogVis = chkCog ? (chkCog.checked ? "visible" : "none") : (cogVisDefault ? "visible" : "none");
+          var cogQuad = Array.isArray(lyr.image_coordinates) && lyr.image_coordinates.length === 4
+            ? lyr.image_coordinates
+            : [
+                [lyr.bounds[0], lyr.bounds[3]],
+                [lyr.bounds[2], lyr.bounds[3]],
+                [lyr.bounds[2], lyr.bounds[1]],
+                [lyr.bounds[0], lyr.bounds[1]]
+              ];
+
+          if (mapInstance.getLayer(lyr.id + "-raster")) mapInstance.removeLayer(lyr.id + "-raster");
+          if (mapInstance.getSource(srcId)) mapInstance.removeSource(srcId);
+          mapInstance.addSource(srcId, {
+            type: "image",
+            url: resolvedCogPreview,
+            coordinates: cogQuad
+          });
+          mapInstance.addLayer({
+            id: lyr.id + "-raster",
+            type: "raster",
+            source: srcId,
+            layout: { visibility: initCogVis },
+            paint: { "raster-opacity": cogOpacity, "raster-resampling": "linear" }
+          }, findReferenceOverlayLayerId(false));
+
+          var sliderCog = document.querySelector('[data-layer-opacity="' + lyr.id + '"]');
+          if (sliderCog) {
+            sliderCog.disabled = false;
+            sliderCog.value = String(cogOpacity);
+            sliderCog.oninput = function () {
+              var op = parseFloat(sliderCog.value);
+              if (mapInstance.getLayer(lyr.id + "-raster")) {
+                mapInstance.setPaintProperty(lyr.id + "-raster", "raster-opacity", op);
+              }
+            };
+          }
+          wireThematicControlsForLayer(lyr, cogStyle.fill_color, cogStyle);
         } else if (lyr.format === "xyz_or_cog" && resolvedSource.indexOf("{z}") !== -1) {
           mapInstance.addSource(srcId, { type: "raster", tiles: [resolvedSource], tileSize: 256 });
           mapInstance.addLayer({ id: lyr.id + "-raster", type: "raster", source: srcId, paint: { "raster-opacity": 0.8 } });
@@ -1493,29 +2479,49 @@
         var maskOp = maskOpEl ? parseFloat(maskOpEl.value) : 0.88;
         applyStudyAreaMaskToMap(mapInstance, projectPerimeterGeoJson, maskEnabled, maskOp);
       }
+
+      updateFloatingMapLegend();
     }
 
     var projectPerimeterGeoJson = null;
 
     if (mapInstance) {
-      var perimUrl = new URL("geovisor/capas/perimetro_zona_estudio.geojson", window.location.origin + baseUrl).href;
-      fetch(perimUrl)
-        .then(function (r) {
-          return r.ok ? r.json() : null;
-        })
-        .then(function (perimGj) {
-          if (perimGj) {
-            projectPerimeterGeoJson = perimGj;
-            var maskToggleEl = document.getElementById("gv-toggle-mask");
-            var maskOpEl = document.getElementById("gv-mask-opacity");
-            var maskEnabled = maskToggleEl ? maskToggleEl.checked : true;
-            var maskOp = maskOpEl ? parseFloat(maskOpEl.value) : 0.88;
-            if (mapInstance.isStyleLoaded()) {
-              applyStudyAreaMaskToMap(mapInstance, projectPerimeterGeoJson, maskEnabled, maskOp);
+      var perimCandidates = [];
+      if (cfg.perimeter_path) perimCandidates.push(cfg.perimeter_path);
+      perimCandidates.push("geovisor/capas/perimetro_zona_estudio.geojson");
+      (cfg.layers || []).forEach(function (l) {
+        if (!l || !l.source_path || l.format !== "geojson") return;
+        if ((l.style && l.style.interactive_fill === false) || /(perimetro|area_estudio|municipio_one|conchagua_la_union)/i.test(l.source_path)) {
+          if (perimCandidates.indexOf(l.source_path) === -1) perimCandidates.push(l.source_path);
+        }
+      });
+
+      function tryFetchPerimeterAt(idx) {
+        if (idx >= perimCandidates.length) return;
+        var pUrl = /^https?:\/\//i.test(perimCandidates[idx])
+          ? perimCandidates[idx]
+          : new URL(perimCandidates[idx], window.location.origin + baseUrl).href;
+        fetch(pUrl)
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (perimGj) {
+            if (perimGj && perimGj.type) {
+              projectPerimeterGeoJson = perimGj;
+              var maskToggleEl = document.getElementById("gv-toggle-mask");
+              var maskOpEl = document.getElementById("gv-mask-opacity");
+              var maskEnabled = maskToggleEl ? maskToggleEl.checked : true;
+              var maskOp = maskOpEl ? parseFloat(maskOpEl.value) : 0.88;
+              if (mapInstance.isStyleLoaded()) {
+                applyStudyAreaMaskToMap(mapInstance, projectPerimeterGeoJson, maskEnabled, maskOp);
+              }
+            } else {
+              tryFetchPerimeterAt(idx + 1);
             }
-          }
-        })
-        .catch(function () {});
+          })
+          .catch(function () {
+            tryFetchPerimeterAt(idx + 1);
+          });
+      }
+      tryFetchPerimeterAt(0);
 
       var gvMaskToggle = document.getElementById("gv-toggle-mask");
       var gvMaskOpacity = document.getElementById("gv-mask-opacity");
@@ -1577,6 +2583,24 @@
           applyBasemapKey(btn.getAttribute("data-basemap-quick"));
         });
       });
+
+      var scenarioBtns = document.querySelectorAll(".gv-scenario-btn");
+      scenarioBtns.forEach(function (btn) {
+        btn.onclick = function () {
+          var scKey = btn.getAttribute("data-gv-scenario");
+          if (scKey) applyScenario(scKey);
+        };
+      });
+
+      var legendToggleBtn = document.getElementById("gv-legend-toggle");
+      var floatingLegendEl = document.getElementById("gv-floating-legend");
+      if (legendToggleBtn && floatingLegendEl) {
+        legendToggleBtn.onclick = function () {
+          var isCol = floatingLegendEl.classList.toggle("is-collapsed");
+          legendToggleBtn.textContent = isCol ? "+" : "−";
+          legendToggleBtn.title = isCol ? "Expandir leyenda" : "Minimizar leyenda";
+        };
+      }
     }
 
     // =======================================================================
@@ -1628,7 +2652,6 @@
         if (mapInstance.getSource("src-" + safeId)) mapInstance.removeSource("src-" + safeId);
         btnEl.textContent = "Cargar en mapa";
         btnEl.className = "btn btn-teal btn-xs";
-        updateLayerLegend();
         return;
       }
 
@@ -1667,7 +2690,6 @@
           if (folderStatusEl) {
             folderStatusEl.textContent = "Capa cargada desde carpeta del repositorio: " + fname;
           }
-          updateLayerLegend();
         })
         .catch(function (err) {
           btnEl.disabled = false;
@@ -2052,32 +3074,132 @@
       });
     }
 
-    points.forEach(function (pt) {
+    function buildHubPopupDom(pt) {
       var wrap = createSafePopupElement(
-        pt.country_name + " · " + pt.short_name,
+        (pt.country_name || "") + " · " + (pt.short_name || pt.id || ""),
         [
-          ["Territorio", pt.territory_label],
-          ["Institución", pt.institution],
-          ["Aviso", "Ubicación referencial según el perfil (cada sitio incluye sus capas en su Geovisor GeoLibre)"]
+          ["Zona de estudio", pt.territory_label || "—"],
+          ["Institución", pt.institution || "Clúster Copernicus Urbano"],
+          ["Capas activas", pt.layers_summary || "Capas satelitales Copernicus + datos locales calibrados"]
         ],
-        "INICIATIVA " + pt.country_code
+        "CLÚSTER COPERNICUS URBANO · " + (pt.country_code || "")
       );
-      if (pt.detail_url) {
-        var link = document.createElement("a");
-        link.href = pt.detail_url;
-        link.textContent = "Ver ficha completa →";
-        link.style.display = "inline-block";
-        link.style.marginTop = "6px";
-        link.style.fontWeight = "700";
-        link.style.color = "#007F8B";
-        wrap.appendChild(link);
+      var btnRow = document.createElement("div");
+      btnRow.style.display = "flex";
+      btnRow.style.flexWrap = "wrap";
+      btnRow.style.gap = "6px";
+      btnRow.style.marginTop = "8px";
+
+      function addPopupBtn(href, label, bg, fg, isExternal) {
+        if (!href) return;
+        var a = document.createElement("a");
+        a.href = href;
+        a.textContent = label;
+        a.style.display = "inline-block";
+        a.style.padding = "4px 8px";
+        a.style.borderRadius = "5px";
+        a.style.fontSize = "0.75rem";
+        a.style.fontWeight = "700";
+        a.style.textDecoration = "none";
+        a.style.background = bg;
+        a.style.color = fg;
+        if (isExternal) {
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+        }
+        btnRow.appendChild(a);
       }
 
-      new window.maplibregl.Marker({ color: "#14283F" })
+      addPopupBtn(pt.geovisor_url, "🗺️ Geovisor", "#000A62", "#FFFFFF", /^https?:/i.test(pt.geovisor_url || ""));
+      addPopupBtn(pt.atlas_url, "📚 Atlas Web", "#007F8B", "#FFFFFF", /^https?:/i.test(pt.atlas_url || ""));
+      addPopupBtn(pt.atlas_pdf_url, "📥 Atlas PDF", "#FFC800", "#000A62", true);
+      addPopupBtn(pt.detail_url, "📄 Ficha →", "#EEF2FA", "#000A62", false);
+      wrap.appendChild(btnRow);
+      return wrap;
+    }
+
+    var pointsById = {};
+    points.forEach(function (pt) {
+      if (pt.id) pointsById[pt.id] = pt;
+      var wrap = buildHubPopupDom(pt);
+      new window.maplibregl.Marker({ color: "#000A62" })
         .setLngLat(pt.center)
-        .setPopup(new window.maplibregl.Popup({ offset: 22 }).setDOMContent(wrap))
+        .setPopup(new window.maplibregl.Popup({ offset: 22, maxWidth: "340px" }).setDOMContent(wrap))
         .addTo(map);
     });
+
+    var hubBaseUrl = document.body.getAttribute("data-baseurl") || container.getAttribute("data-baseurl") || "";
+    if (!hubBaseUrl) {
+      var gvScripts = document.querySelectorAll('script[src*="assets/js/geovisor.js"]');
+      if (gvScripts.length) {
+        try {
+          var sPath = new URL(gvScripts[gvScripts.length - 1].src, window.location.href).pathname;
+          hubBaseUrl = sPath.replace(/assets\/js\/geovisor\.js.*$/i, "") || "/";
+        } catch (e) {
+          hubBaseUrl = "/";
+        }
+      } else {
+        hubBaseUrl = "/";
+      }
+    }
+    if (hubBaseUrl.charAt(0) !== "/") hubBaseUrl = "/" + hubBaseUrl;
+    if (hubBaseUrl.charAt(hubBaseUrl.length - 1) !== "/") hubBaseUrl = hubBaseUrl + "/";
+
+    var hubPerimetersCache = null;
+    function mountHubPerimeters() {
+      if (!hubPerimetersCache || !map || !map.isStyleLoaded()) return;
+      if (map.getLayer("hub-perimeters-line")) map.removeLayer("hub-perimeters-line");
+      if (map.getLayer("hub-perimeters-fill")) map.removeLayer("hub-perimeters-fill");
+      if (map.getLayer("hub-perimeters-glow")) map.removeLayer("hub-perimeters-glow");
+      if (map.getSource("hub-perimeters-src")) map.removeSource("hub-perimeters-src");
+
+      map.addSource("hub-perimeters-src", { type: "geojson", data: hubPerimetersCache });
+      map.addLayer({
+        id: "hub-perimeters-glow",
+        type: "line",
+        source: "hub-perimeters-src",
+        paint: { "line-color": "#00E5FF", "line-width": 6, "line-opacity": 0.42 }
+      });
+      map.addLayer({
+        id: "hub-perimeters-fill",
+        type: "fill",
+        source: "hub-perimeters-src",
+        paint: { "fill-color": "#FFC800", "fill-opacity": 0.24 }
+      });
+      map.addLayer({
+        id: "hub-perimeters-line",
+        type: "line",
+        source: "hub-perimeters-src",
+        paint: { "line-color": "#000A62", "line-width": 2.2 }
+      });
+    }
+
+    var perimHubUrl = new URL("assets/data/perimetros_proyectos.geojson", window.location.origin + hubBaseUrl).href;
+    fetch(perimHubUrl)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (gj) {
+        if (!gj) return;
+        hubPerimetersCache = gj;
+        if (map.isStyleLoaded()) mountHubPerimeters();
+        else map.once("load", mountHubPerimeters);
+      })
+      .catch(function () {});
+
+    map.on("styledata", function () {
+      if (hubPerimetersCache && !map.getSource("hub-perimeters-src")) {
+        mountHubPerimeters();
+      }
+    });
+
+    map.on("click", "hub-perimeters-fill", function (e) {
+      if (!e.features || !e.features.length) return;
+      var pr = e.features[0].properties || {};
+      var ptMatch = pointsById[pr.id] || pr;
+      var dom = buildHubPopupDom(ptMatch);
+      new window.maplibregl.Popup({ maxWidth: "340px" }).setLngLat(e.lngLat).setDOMContent(dom).addTo(map);
+    });
+    map.on("mouseenter", "hub-perimeters-fill", function () { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", "hub-perimeters-fill", function () { map.getCanvas().style.cursor = ""; });
   }
 
   // =========================================================================
@@ -2510,6 +3632,241 @@
         { color: "#FF3366", label: "1% – 25% Ocurrencia (Rosa / Magenta)", desc: "Llanuras de inundación episódica donde se han registrado desbordamientos históricos durante eventos extremos." },
         { color: "#364564", label: "Fondo topográfico sin ocurrencia hídrica", desc: "Relieve emergido atenuado para destacar con alto contraste cauces y planicies inundables a 30 m." }
       ]
+    },
+    "gee-pixel-suelo-20m": {
+      id: "gee-pixel-suelo-20m",
+      number: "Lámina 11",
+      shortTitle: "💰 11. Valor del Suelo Píxel 20 m (Modelo GEE)",
+      title: "Superficie Continua a Nivel de Píxel (20 m) — Valor Estimado del Suelo AMSS (Google Satellite Embeddings V1 + EO)",
+      sensor: "Google Earth Engine · Random Forest (200 árboles) sobre 71 predictores: Google Satellite Embeddings V1 (64 bandas) + Open Buildings 2.5D + WorldCover 10 m + VIIRS DNB + Copernicus DEM GLO-30",
+      formula: "V_est(x,y) = exp(RF_log(71 bandas)) · 3.85 M píxeles a 20 m · Rango $8.66 a $471.13 USD/m² (Mediana urbana $32.34 · P95 $176.17 · P99 $317.72/m²)",
+      selectorLabel: "🎛️ Seleccionar superficie continua a 20 m generada en Google Earth Engine:",
+      defaultVariant: "gee-pixel-20m-urbano",
+      variants: [
+        {
+          key: "gee-pixel-20m-urbano",
+          pill: "Píxel 20 m · Urbano y Desarrollable",
+          label: "Superficie Píxel 20 m · Suelo Urbano y Desarrollable (3.63 M píxeles · Pendiente < 35° sin agua)",
+          title: "Superficie Continua de Valor del Suelo a 20 m · Suelo Urbano y Desarrollable (Pendiente < 35° · USD/m²)",
+          formula: "Máscara de aptitud constructiva (Pendiente GLO-30 < 35° y sin agua permanente WorldCover) · 3,631,473 píxeles válidos"
+        },
+        {
+          key: "gee-pixel-20m-potencial",
+          pill: "Píxel 20 m · Potencial Completo",
+          label: "Superficie Píxel 20 m · Potencial Continuo Completo (3.85 M píxeles · 100% AMSS sin máscara)",
+          title: "Superficie Continua de Valor Potencial del Suelo a 20 m · Cobertura Completa AMSS (USD/m²)",
+          formula: "Inferencia continua Halo = 0 en los 3,845,824 píxeles del ámbito metropolitano (1,488.8 km²)"
+        }
+      ],
+      reading:
+        "Muestra a resolución de 20 metros el gradiente continuo del valor del suelo en el AMSS obtenido mediante aprendizaje automático sobre Google Satellite Embeddings V1 y variables físicas Copernicus. Destaca el núcleo policéntrico de máxima plusvalía (San Benito, Escalón, Antiguo Cuscatlán y Santa Tecla > $300 USD/m²), los corredores logísticos e industriales intermedios ($100–$175/m²) y la transición hacia reservas volcánicas y rurales (≤ $30/m²).",
+      swatches: [
+        { color: "#67001F", label: "> $420 USD/m² (Granate prime · Máx. $471.13)", desc: "Núcleos corporativos y financieros de máxima capitalización (San Benito, Santa Elena, Paseo General Escalón)." },
+        { color: "#B30000", label: "$300 – $420 USD/m² (Rojo carmesí)", desc: "Ejes comerciales metropolitanos primarios, subcentros de servicios y desarrollos verticales consolidados." },
+        { color: "#E34A33", label: "$175 – $300 USD/m² (Rojo anaranjado)", desc: "Tejido residencial medio-alto y corredores terciarios consolidados en San Salvador, Antiguo Cuscatlán y Santa Tecla." },
+        { color: "#FC8D59", label: "$100 – $175 USD/m² (Naranja coral)", desc: "Tejido urbano consolidado de densidad media, nodos distritales y parques logísticos-industriales." },
+        { color: "#FDBB84", label: "$50 – $100 USD/m² (Ámbar claro)", desc: "Frentes de expansión periurbana activa sobre los corredores Norte (Apopa), Oriente (Soyapango–Ilopango) y Sur." },
+        { color: "#FDD49E", label: "$30 – $50 USD/m² (Crema cálido)", desc: "Borde rururbano de baja densidad constructiva y asentamientos dispersos en piedemonte." },
+        { color: "#FEF0D9", label: "≤ $30 USD/m² (Marfil · Reserva / Rural)", desc: "Suelos agrícolas, cafetales de sombra, laderas volcánicas y áreas de recarga hídrica (mínimo $8.66/m²)." }
+      ]
+    },
+    "gee-malla-upds-suelo": {
+      id: "gee-malla-upds-suelo",
+      number: "Lámina 12",
+      shortTitle: "🗺️ 12. Malla 250 m y 425 UPDs (Resultados GEE)",
+      title: "Malla Continua Metropolitana (24,292 Celdas de 250 m) e Imputación de las 425 UPDs sin Vacíos",
+      sensor: "Síntesis Zonal GEE (250 × 250 m · 6.25 ha) + Consolidación de 281 UPDs Observadas (OPAMSS / Oferta 2025) y 144 UPDs Imputadas",
+      formula: "Malla: 24,292 celdas (Media $50.04 · Mediana $32.47 · P90 $93.83 · Máx. $375.90/m²) | 425 UPDs: r = 0.7816 (0 vacíos)",
+      selectorLabel: "🗺️ Seleccionar capa vectorial de resultados obtenidos (clic en cualquier polígono del mapa para inspeccionar):",
+      defaultVariant: "gee-malla-250m-homol",
+      variants: [
+        {
+          key: "gee-malla-250m-homol",
+          pill: "Malla 250 m · Valor USD/m²",
+          label: "1. Malla Continua 250 m · Valor Estimado Homologado (24,292 celdas · USD/m²)",
+          title: "Malla Continua Metropolitana 250 m · Valor Estimado del Suelo (24,292 Celdas · 0 Vacíos)",
+          formula: "Reducción zonal media/mediana/DE desde píxel de 20 m sobre 24,292 celdas de 6.25 ha (148,875.1 ha totales)"
+        },
+        {
+          key: "gee-malla-250m-tipologia",
+          pill: "Malla 250 m · Régimen Urbano/Rural",
+          label: "2. Malla Continua 250 m · Régimen Morfológico (Urbano Consolidado / Periurbano / Rural)",
+          title: "Clasificación Morfológica de las 24,292 Celdas de 250 m (Urbano Consolidado, Periurbano y Rural)",
+          formula: "Clasificación por fracción edificada 10 m y altura 2.5D Open Buildings (2,215 urbanas · 1,571 periurbanas · 20,506 rurales)",
+          swatches: [
+            { color: "#B91C1C", label: "Urbano Consolidado (2,215 celdas · 13,825 ha)", desc: "Fracción edificada ≥ 40% o altura media ≥ 3.5 m. Valor medio: $187.27/m² (Mediana $169.24 · P90 $302.70/m²)." },
+            { color: "#F59E0B", label: "Periurbano en Transición (1,571 celdas · 9,578 ha)", desc: "Fracción edificada entre 10% y 40%. Frentes de expansión activa con valor medio de $74.35/m² (Mediana $67.49/m²)." },
+            { color: "#0F766E", label: "Rural / Reserva Ambiental (20,506 celdas · 125,472 ha)", desc: "Fracción edificada < 10%. Matrices agroforestales y volcánicas con valor medio de $33.35/m² (Mediana $31.11/m²)." }
+          ]
+        },
+        {
+          key: "gee-malla-250m-quintiles",
+          pill: "Malla 250 m · Quintiles P20–P80",
+          label: "3. Malla Continua 250 m · Quintiles Metropolitanos (4,858 celdas por clase)",
+          title: "Distribución por Quintiles Metropolitanos de Valor del Suelo (Malla 250 m · P20 a P80)",
+          formula: "Cortes empíricos exactos sobre 24,292 celdas: P20=$27.46 · P40=$30.73 · P60=$34.73 · P80=$46.33 USD/m²",
+          swatches: [
+            { color: "#440154", label: "Quintil 5 · Superior (> $46.33 hasta $375.90/m²)", desc: "20% superior metropolitano (4,859 celdas): concentra la totalidad del tejido urbano consolidado y subcentros." },
+            { color: "#3B528B", label: "Quintil 4 · Medio-Alto ($34.74 – $46.33/m²)", desc: "Coronas periurbanas inmediatas y corredores secundarios en proceso de densificación." },
+            { color: "#21918C", label: "Quintil 3 · Intermedio ($30.74 – $34.73/m²)", desc: "Transición agrourbana accesible y valles intermedios." },
+            { color: "#5EC962", label: "Quintil 2 · Medio-Bajo ($27.47 – $30.73/m²)", desc: "Terrenos rurales de pendiente moderada y cafetales periféricos." },
+            { color: "#FDE725", label: "Quintil 1 · Base (≤ $27.46/m²)", desc: "Zonas montañosas escarpadas, cañones y áreas de máxima restricción topográfica." }
+          ]
+        },
+        {
+          key: "gee-upd-425-fin",
+          pill: "425 UPDs · Valor Integrado (0 Vacíos)",
+          label: "4. 425 UPDs Completas · Valor Integrado 2025 sin Vacíos (Observado + Imputado GEE)",
+          title: "Cobertura Completa de las 425 UPDs del AMSS · Valor del Suelo Integrado sin Vacíos (USD/m²)",
+          formula: "VAL_FIN_M2 = Valor observado en 281 UPDs + Imputación satelital GEE en 144 UPDs (r = 0.7816 · sesgo mediana -0.79%)",
+          swatches: [
+            { color: "#B30000", label: "Alto (> $300 USD/m² · 37 UPDs)", desc: "UPDs corporativas y residenciales prime del eje central-poniente." },
+            { color: "#E34A33", label: "Medio-Alto ($175 – $300 USD/m² · 53 UPDs)", desc: "UPDs residenciales consolidadas y subcentros comerciales." },
+            { color: "#FC8D59", label: "Medio ($100 – $175 USD/m² · 67 UPDs)", desc: "Tejido urbano intermedio y corredores industriales-logísticos." },
+            { color: "#FDCC8A", label: "Medio-Bajo ($50 – $100 USD/m² · 91 UPDs)", desc: "Sectores periféricos consolidados y cabeceras distritales." },
+            { color: "#FEF0D9", label: "Bajo (≤ $50 USD/m² · 177 UPDs)", desc: "UPDs periurbanas extensivas y sectores rurales imputados sin muestra previa." }
+          ]
+        },
+        {
+          key: "gee-upd-425-origen",
+          pill: "425 UPDs · Observado vs. Imputado",
+          label: "5. 425 UPDs · Mapa de Procedencia: 281 Observadas vs. 144 Imputadas por Modelo GEE",
+          title: "Cierre de Brecha Cartográfica: 281 UPDs Observadas vs. 144 UPDs Imputadas por Satélite (57,648 ha)",
+          formula: "ORIGEN_FIN: 66.1% con evidencia directa (OPAMSS / Oferta 2025) + 33.9% completado mediante Google Satellite Embeddings V1",
+          swatches: [
+            { color: "#0F766E", label: "Observado / Calibrado 2025 (281 UPDs · 66.1%)", desc: "Unidades con registros verificados de oferta inmobiliaria 2025 y/o permisos OPAMSS (mediana observada $103.66/m²)." },
+            { color: "#F59E0B", label: "Imputado por Modelo GEE (144 UPDs · 33.9% · 57,648 ha)", desc: "Unidades previamente vacías completadas por el modelo GEE (mediana imputada $35.14/m², rango $17.75–$267.21/m²)." }
+          ]
+        },
+        {
+          key: "lisa-mercado-2025",
+          pill: "Clusters LISA · Oferta 2025",
+          label: "6. Autocorrelación Espacial LISA (Moran Local) · Precios de Oferta Inmobiliaria 2025",
+          title: "Clusters Espaciales LISA (Índice Local de Moran) · Oferta Inmobiliaria 2025 en 265 UPDs",
+          formula: "Cuadrantes de autocorrelación espacial bivariada/local I_i sobre log-precios de oferta 2025",
+          swatches: [
+            { color: "#D7191C", label: "Alto-Alto · Hotspot de Plusvalía (122 UPDs)", desc: "Concentración estadísticamente contigua de valores altos en el corredor poniente-suroeste." },
+            { color: "#2C7BB6", label: "Bajo-Bajo · Coldspot Periférico (78 UPDs)", desc: "Agrupamiento homogéneo de valores bajos en coronas norte y nororiente." },
+            { color: "#ABD9E9", label: "Bajo-Alto · Isla de Menor Valor (33 UPDs)", desc: "UPDs de menor precio relativo rodeadas de vecindarios de alta valorización (potencial de recualificación)." },
+            { color: "#FDAE61", label: "Alto-Bajo · Subcentro Aislado (32 UPDs)", desc: "Polos comerciales o logísticos de alto valor inmersos en entornos periféricos de menor precio." }
+          ]
+        }
+      ],
+      reading:
+        "Integra en un solo lienzo interactivo la teselación continua de 24,292 celdas de 250 m y las 425 Unidades de Planificación Detallada (UPDs) del AMSS sin un solo vacío de información. Haz clic sobre cualquier celda o polígono en el mapa para consultar su valor estimado en USD/m², mediana, desviación estándar intra-celda, régimen morfológico, altura edificada 2.5D y distrito.",
+      swatches: [
+        { color: "#990000", label: "Nodos Prime (> $300 USD/m² · 241 celdas)", desc: "Subcentros corporativos y residenciales de máxima densidad económica (hasta $375.90/m² a escala de celda)." },
+        { color: "#E34A33", label: "Urbano Alto ($175 – $300 USD/m² · 836 celdas)", desc: "Áreas urbanas consolidadas de alta renta en Antiguo Cuscatlán, San Salvador y Santa Tecla." },
+        { color: "#FC8D59", label: "Urbano Medio ($100 – $175 USD/m² · 1,218 celdas)", desc: "Tejido residencial e industrial consolidado sobre ejes viales estructurantes." },
+        { color: "#FDBB84", label: "Transición ($50 – $100 USD/m² · 2,215 celdas)", desc: "Bordes urbanos y corredores de expansión metropolitana." },
+        { color: "#FDD49E", label: "Periurbano Bajo ($30 – $50 USD/m² · 11,225 celdas)", desc: "Piedemonte y transición agrourbana de baja compacidad." },
+        { color: "#FEF0D9", label: "Reserva / Rural (≤ $30 USD/m² · 8,557 celdas)", desc: "Suelos rurales, forestales y relieves volcánicos del AMSS ampliado." }
+      ]
+    }
+  };
+
+  function makeAtlasNumericStepExpr(propName, breaks, colors, noDataColor) {
+    var stepArr = ["step", ["coalesce", ["to-number", ["get", propName]], 0], colors[0]];
+    for (var i = 0; i < breaks.length; i++) {
+      stepArr.push(breaks[i], colors[i + 1]);
+    }
+    return [
+      "case",
+      ["all", ["has", propName], ["!=", ["get", propName], null], [">", ["to-number", ["get", propName]], 0]],
+      stepArr,
+      noDataColor || "#CBD5E1"
+    ];
+  }
+
+  var ATLAS_LOCAL_VARIANTS = {
+    "gee-pixel-20m-urbano": {
+      kind: "image_overlay",
+      imagePath: "geovisor/data/amss_pixel_20m_urbano.png",
+      bounds: [-89.628689, 13.418135, -89.025201, 13.920473],
+      opacity: 0.9,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-pixel-20m-potencial": {
+      kind: "image_overlay",
+      imagePath: "geovisor/data/amss_pixel_20m_potencial.png",
+      bounds: [-89.628689, 13.418135, -89.025201, 13.920473],
+      opacity: 0.9,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-malla-250m-homol": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/amss_malla_continua_250m.geojson",
+      badge: "ATLAS GEE · MALLA CONTINUA 250 M",
+      fillExpr: makeAtlasNumericStepExpr("VAL_EST_M2", [30, 50, 100, 175, 300], ["#FEF0D9", "#FDD49E", "#FDBB84", "#FC8D59", "#E34A33", "#990000"], "#CBD5E1"),
+      fillOpacity: 0.85,
+      fineMesh: true,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-malla-250m-tipologia": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/amss_malla_continua_250m.geojson",
+      badge: "ATLAS GEE · RÉGIMEN MORFOLÓGICO 250 M",
+      fillExpr: [
+        "match",
+        ["get", "TIPO_SUELO"],
+        "URBANO_CONSOLIDADO", "#B91C1C",
+        "PERIURBANO_TRANSICION", "#F59E0B",
+        "RURAL_RESERVA", "#0F766E",
+        "#CBD5E1"
+      ],
+      fillOpacity: 0.82,
+      fineMesh: true,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-malla-250m-quintiles": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/amss_malla_continua_250m.geojson",
+      badge: "ATLAS GEE · QUINTILES METROPOLITANOS 250 M",
+      fillExpr: makeAtlasNumericStepExpr("VAL_EST_M2", [27.46, 30.73, 34.73, 46.33], ["#FDE725", "#5EC962", "#21918C", "#3B528B", "#440154"], "#CBD5E1"),
+      fillOpacity: 0.84,
+      fineMesh: true,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-upd-425-fin": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/amss_upd_425_imputadas.geojson",
+      badge: "ATLAS GEE · 425 UPDS INTEGRADAS (0 VACÍOS)",
+      fillExpr: makeAtlasNumericStepExpr("VAL_FIN_M2", [50, 100, 175, 300], ["#FEF0D9", "#FDCC8A", "#FC8D59", "#E34A33", "#B30000"], "#CBD5E1"),
+      fillOpacity: 0.84,
+      fineMesh: false,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "gee-upd-425-origen": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/amss_upd_425_imputadas.geojson",
+      badge: "ATLAS GEE · COBERTURA OBSERVADA VS. IMPUTADA",
+      fillExpr: [
+        "match",
+        ["get", "ORIGEN_FIN"],
+        "OBSERVADO", "#0F766E",
+        "IMPUTADO_MODELO_GEE", "#F59E0B",
+        "#94A3B8"
+      ],
+      fillOpacity: 0.84,
+      fineMesh: false,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
+    },
+    "lisa-mercado-2025": {
+      kind: "geojson",
+      sourcePath: "geovisor/capas/LISA_PRECIOS_2025.geojson",
+      badge: "ATLAS · AUTOCORRELACIÓN ESPACIAL LISA 2025",
+      fillExpr: [
+        "match",
+        ["get", "cuadrante_"],
+        "Alto-Alto", "#D7191C",
+        "Bajo-Bajo", "#2C7BB6",
+        "Bajo-Alto", "#ABD9E9",
+        "Alto-Bajo", "#FDAE61",
+        "#CBD5E1"
+      ],
+      fillOpacity: 0.84,
+      fineMesh: false,
+      districtOutlinePath: "geovisor/capas/amss_14_distritos.geojson"
     }
   };
 
@@ -2552,7 +3909,22 @@
     var plateTabs = Array.prototype.slice.call(document.querySelectorAll("[data-atlas-plate]"));
     var plateJumpBtns = Array.prototype.slice.call(document.querySelectorAll("[data-atlas-plate-select]"));
 
-    var baseUrl = document.body.getAttribute("data-baseurl") || "/";
+    var baseUrl = document.body.getAttribute("data-baseurl") || mapContainer.getAttribute("data-baseurl") || "";
+    if (!baseUrl) {
+      var gvScripts = document.querySelectorAll('script[src*="assets/js/geovisor.js"]');
+      if (gvScripts.length) {
+        try {
+          var sPath = new URL(gvScripts[gvScripts.length - 1].src, window.location.href).pathname;
+          baseUrl = sPath.replace(/assets\/js\/geovisor\.js.*$/i, "") || "/";
+        } catch (e) {
+          baseUrl = "/";
+        }
+      } else {
+        baseUrl = "/";
+      }
+    }
+    if (baseUrl.charAt(0) !== "/") baseUrl = "/" + baseUrl;
+    if (baseUrl.charAt(baseUrl.length - 1) !== "/") baseUrl = baseUrl + "/";
     var initialCenterAttr = mapContainer.getAttribute("data-center");
     var initialZoomAttr = mapContainer.getAttribute("data-zoom");
     var currentCenter = [-84.0, 10.0];
@@ -2562,13 +3934,58 @@
       } catch (e) {}
     }
     var currentZoom = initialZoomAttr ? parseFloat(initialZoomAttr) : 12;
-    var currentPlateKey = plateTabs.length ? plateTabs[0].getAttribute("data-atlas-plate") : "sentinel2-cloudless";
+    var projPlatesScript = document.getElementById("atlas-project-plates-json");
+    if (projPlatesScript) {
+      try {
+        var projPlatesArr = JSON.parse(projPlatesScript.textContent || "[]");
+        if (Array.isArray(projPlatesArr)) {
+          projPlatesArr.forEach(function (pl) {
+            if (!pl || !pl.key) return;
+            var varKey = pl.key + "-v1";
+            ATLAS_PLATES[pl.key] = {
+              id: pl.key,
+              number: pl.number || "Parte I",
+              shortTitle: pl.shortTitle || pl.title,
+              title: pl.title || pl.shortTitle,
+              sensor: pl.sensor || "Integración Copernicus + Datos Locales del Proyecto",
+              formula: pl.formula || "Modelado espacial aplicado sobre la zona de estudio",
+              selectorLabel: "📌 Lámina analítica específica desarrollada en este proyecto (Parte I del Atlas):",
+              defaultVariant: varKey,
+              variants: [
+                {
+                  key: varKey,
+                  pill: pl.number || "Parte I",
+                  label: pl.title || pl.shortTitle,
+                  title: pl.title || pl.shortTitle,
+                  formula: pl.formula || ""
+                }
+              ],
+              reading: pl.reading || "",
+              swatches: pl.swatches || []
+            };
+            ATLAS_LOCAL_VARIANTS[varKey] = {
+              kind: "image_overlay",
+              imagePath: pl.imageRel,
+              coordinates: pl.coords,
+              opacity: 0.94,
+              districtOutlinePath: pl.outlineRel || null
+            };
+          });
+        }
+      } catch (e) {}
+    }
+
+    var defaultPlateAttr = mapContainer.getAttribute("data-default-plate");
+    var currentPlateKey = (defaultPlateAttr && ATLAS_PLATES[defaultPlateAttr])
+      ? defaultPlateAttr
+      : (plateTabs.length ? plateTabs[0].getAttribute("data-atlas-plate") : "sentinel2-cloudless");
     if (!ATLAS_PLATES[currentPlateKey]) currentPlateKey = "sentinel2-cloudless";
     var currentVariantKey = ATLAS_PLATES[currentPlateKey].defaultVariant;
     var currentPerimeterGeoJson = null;
     var allHubPerimeters = null;
     var atlasMap = null;
     var mountedVariantMap = {};
+    var atlasGeoJsonCache = {};
     var isPlayingTimeline = false;
     var playTimerId = null;
 
@@ -2593,7 +4010,14 @@
     function getTimelineSequence(plateObj, activeVarKey) {
       if (!plateObj) return [];
       var pid = plateObj.id;
-      if (pid === "copernicus-dem-glo30" || pid === "jrc-gsw-occurrence") {
+      if (
+        pid === "copernicus-dem-glo30" ||
+        pid === "jrc-gsw-occurrence" ||
+        pid === "gee-pixel-suelo-20m" ||
+        pid === "gee-malla-upds-suelo" ||
+        pid.indexOf("proj-") === 0 ||
+        (plateObj.variants || []).length <= 1
+      ) {
         return [];
       }
       if (pid === "s2-l2a-composites") {
@@ -2833,8 +4257,281 @@
       });
     }
 
+    function fetchAtlasGeoJson(relPath, cb) {
+      if (atlasGeoJsonCache[relPath]) {
+        cb(atlasGeoJsonCache[relPath]);
+        return;
+      }
+      var resolvedUrl = /^https?:\/\//i.test(relPath)
+        ? relPath
+        : new URL(relPath, window.location.origin + baseUrl).href;
+      fetch(resolvedUrl)
+        .then(function (r) {
+          return r.ok ? r.json() : null;
+        })
+        .then(function (gj) {
+          if (gj) atlasGeoJsonCache[relPath] = gj;
+          cb(gj);
+        })
+        .catch(function () {
+          cb(null);
+        });
+    }
+
+    function attachAtlasFeaturePopup(layerId, badgeTitle) {
+      if (!atlasMap) return;
+      atlasMap.on("click", layerId, function (e) {
+        if (e.originalEvent && e.originalEvent._atlasPopupHandled) return;
+        if (!e.features || !e.features.length) return;
+        if (e.originalEvent) e.originalEvent._atlasPopupHandled = true;
+        var props = e.features[0].properties || {};
+        var nameVal = props.NAME_UPD || props.nombre || "Polígono Atlas";
+        var rows = [];
+        if (props.ID_CELDA !== undefined && props.ID_CELDA !== null) {
+          nameVal = "Celda " + String(props.ID_CELDA) + (props.DISTRITO ? " · " + String(props.DISTRITO) : "");
+          rows.push(["Valor estimado (Media celda)", "$" + Number(props.VAL_EST_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push([
+            "Mediana / Potencial celda",
+            "$" + Number(props.VAL_MED_M2 || 0).toFixed(2) + " / $" + Number(props.VAL_POT_M2 || 0).toFixed(2) + " USD/m²"
+          ]);
+          rows.push(["Dispersión intra-celda (DE)", "± $" + Number(props.VAL_STD_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push(["Régimen morfológico GEE", String(props.TIPO_SUELO || "—").replace(/_/g, " ")]);
+          var pctEd = props.PCT_EDIF !== undefined && props.PCT_EDIF !== null
+            ? Number(props.PCT_EDIF)
+            : Number(props.FRAC_EDIF || 0) * 100;
+          rows.push(["Fracción construida (10 m)", pctEd.toFixed(1) + "%"]);
+          rows.push(["Altura media 2.5D (Open Buildings)", Number(props.ALT_EDIF_M || 0).toFixed(2) + " m"]);
+          rows.push(["Pendiente media (GLO-30)", Number(props.PEND_DEG || 0).toFixed(1) + "°"]);
+          rows.push(["Distrito / Superficie", (props.DISTRITO || "AMSS") + " · " + Number(props.AREA_HA || 0).toFixed(2) + " ha"]);
+        } else if (props.ORIGEN_FIN !== undefined && props.ORIGEN_FIN !== null) {
+          nameVal = (props.NAME_UPD || ("UPD #" + (props.OBJECTID || ""))) + (props.DISTRITO ? " · " + String(props.DISTRITO) : "");
+          rows.push(["Valor integrado 2025 (VAL_FIN_M2)", "$" + Number(props.VAL_FIN_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push([
+            "Fuente de consolidación",
+            props.ORIGEN_FIN === "OBSERVADO" ? "Observado / Calibrado 2025" : "Imputado por Modelo Satelital GEE"
+          ]);
+          rows.push(["Predicción satelital GEE (VAL_MOD_M2)", "$" + Number(props.VAL_MOD_M2 || 0).toFixed(2) + " USD/m²"]);
+          rows.push(["Tipología UPD / Superficie", (props.TIPO || "—") + " · " + Number(props.AREA_HA || 0).toFixed(2) + " ha"]);
+          rows.push(["Distrito / Municipio", (props.DISTRITO || "—") + (props.MUNICIPIO ? " · " + props.MUNICIPIO : "")]);
+        } else if (props.promedio_2025 !== undefined && props.promedio_2025 !== null) {
+          nameVal = (props.NAME_UPD || "UPD") + (props.nomb_distr ? " · " + String(props.nomb_distr) : "");
+          rows.push(["Precio promedio 2025 (Oferta)", "$" + Number(props.promedio_2025).toFixed(2) + " USD/m²"]);
+          if (props.cuadrante_) rows.push(["Cuadrante LISA (Moran)", String(props.cuadrante_)]);
+          if (props.cluster_p05) rows.push(["Significancia LISA (p≤0.05)", String(props.cluster_p05)]);
+          if (props.moran_loca !== undefined) rows.push(["I de Moran Local", String(props.moran_loca) + " (p=" + props.p_perm_loc + ")"]);
+        }
+        if (!rows.length) rows.push(["Estado", "Capa temática activa en el Atlas"]);
+        var dom = createSafePopupElement(String(nameVal), rows.slice(0, 9), badgeTitle || "ATLAS TEMÁTICO AMSS");
+        new window.maplibregl.Popup({ maxWidth: "350px" }).setLngLat(e.lngLat).setDOMContent(dom).addTo(atlasMap);
+      });
+      atlasMap.on("mouseenter", layerId, function () {
+        atlasMap.getCanvas().style.cursor = "pointer";
+      });
+      atlasMap.on("mouseleave", layerId, function () {
+        atlasMap.getCanvas().style.cursor = "";
+      });
+    }
+
+    function syncMountedVariantVisibilities(activeKey) {
+      if (!atlasMap) return;
+      Object.keys(mountedVariantMap).forEach(function (vk) {
+        var info = mountedVariantMap[vk];
+        var isTarget = vk === activeKey;
+        (info.specs || []).forEach(function (sp) {
+          if (!atlasMap.getLayer(sp.id)) return;
+          if (sp.isVector) {
+            atlasMap.setLayoutProperty(sp.id, "visibility", isTarget ? "visible" : "none");
+          } else {
+            atlasMap.setPaintProperty(sp.id, "raster-opacity", isTarget ? sp.targetOpacity : 0);
+          }
+        });
+      });
+    }
+
+    function mountDistrictOutlineForAtlasVariant(prefix, distPath, beforeLayerId, srcIds, lyrSpecs, variantKey) {
+      if (!distPath || !atlasMap) return;
+      fetchAtlasGeoJson(distPath, function (distGj) {
+        if (!distGj || !atlasMap || !mountedVariantMap[variantKey]) return;
+        var dSrc = prefix + "-dist-src";
+        var dLyr = prefix + "-dist-line";
+        var effBefore = atlasMap.getLayer("study-area-mask-fill") ? "study-area-mask-fill" : beforeLayerId;
+        if (!atlasMap.getSource(dSrc)) {
+          atlasMap.addSource(dSrc, { type: "geojson", data: distGj });
+          srcIds.push(dSrc);
+        }
+        if (!atlasMap.getLayer(dLyr)) {
+          atlasMap.addLayer(
+            {
+              id: dLyr,
+              type: "line",
+              source: dSrc,
+              layout: { visibility: currentVariantKey === variantKey ? "visible" : "none" },
+              paint: { "line-color": "#0F172A", "line-width": 1.15, "line-opacity": 0.68 }
+            },
+            effBefore
+          );
+          lyrSpecs.push({ id: dLyr, isVector: true });
+          mountedVariantMap[variantKey].layerIds.push(dLyr);
+        }
+      });
+    }
+
     function mountAndCrossfadeVariantOnAtlasMap(variantKey) {
       if (!atlasMap) return;
+
+      // Caso A: Capas locales empíricas del Modelo de Valor del Suelo GEE y LISA
+      if (ATLAS_LOCAL_VARIANTS[variantKey]) {
+        if (!atlasMap.isStyleLoaded()) {
+          atlasMap.once("load", function () {
+            mountAndCrossfadeVariantOnAtlasMap(variantKey);
+          });
+          return;
+        }
+        var localCfg = ATLAS_LOCAL_VARIANTS[variantKey];
+        var beforeLayerId = atlasMap.getLayer("study-area-mask-fill") ? "study-area-mask-fill" : undefined;
+
+        if (mountedVariantMap[variantKey]) {
+          syncMountedVariantVisibilities(variantKey);
+          return;
+        }
+
+        var prefix = "atlas-loc-" + variantKey;
+        var srcIds = [];
+        var lyrSpecs = [];
+        var cleanLightTiles = [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ];
+        var baseSrc = prefix + "-base-src";
+        var baseLyr = prefix + "-base-lyr";
+        atlasMap.addSource(baseSrc, { type: "raster", tiles: cleanLightTiles, tileSize: 256 });
+        atlasMap.addLayer(
+          {
+            id: baseLyr,
+            type: "raster",
+            source: baseSrc,
+            minzoom: 0,
+            maxzoom: 19,
+            paint: {
+              "raster-opacity": 0,
+              "raster-saturation": -0.82,
+              "raster-contrast": -0.12,
+              "raster-brightness-min": 0.18,
+              "raster-fade-duration": 220
+            }
+          },
+          beforeLayerId
+        );
+        srcIds.push(baseSrc);
+        lyrSpecs.push({ id: baseLyr, targetOpacity: 0.96, isVector: false });
+
+        if (localCfg.kind === "image_overlay") {
+          var imgUrl = new URL(localCfg.imagePath, window.location.origin + baseUrl).href;
+          var b = localCfg.bounds;
+          var quad = Array.isArray(localCfg.coordinates) && localCfg.coordinates.length === 4
+            ? localCfg.coordinates
+            : [
+                [b[0], b[3]],
+                [b[2], b[3]],
+                [b[2], b[1]],
+                [b[0], b[1]]
+              ];
+          var imgSrc = prefix + "-img-src";
+          var imgLyr = prefix + "-img-lyr";
+          atlasMap.addSource(imgSrc, { type: "image", url: imgUrl, coordinates: quad });
+          atlasMap.addLayer(
+            {
+              id: imgLyr,
+              type: "raster",
+              source: imgSrc,
+              paint: { "raster-opacity": 0, "raster-resampling": "linear", "raster-fade-duration": 220 }
+            },
+            beforeLayerId
+          );
+          srcIds.push(imgSrc);
+          lyrSpecs.push({ id: imgLyr, targetOpacity: localCfg.opacity || 0.9, isVector: false });
+
+          mountedVariantMap[variantKey] = {
+            sourceIds: srcIds,
+            layerIds: lyrSpecs.map(function (s) {
+              return s.id;
+            }),
+            specs: lyrSpecs
+          };
+          mountDistrictOutlineForAtlasVariant(prefix, localCfg.districtOutlinePath, beforeLayerId, srcIds, lyrSpecs, variantKey);
+          if (currentVariantKey === variantKey) {
+            syncMountedVariantVisibilities(variantKey);
+          }
+          return;
+        }
+
+        if (localCfg.kind === "geojson") {
+          mountedVariantMap[variantKey] = {
+            sourceIds: srcIds,
+            layerIds: lyrSpecs.map(function (s) {
+              return s.id;
+            }),
+            specs: lyrSpecs
+          };
+          if (currentVariantKey === variantKey) {
+            syncMountedVariantVisibilities(variantKey);
+          }
+          fetchAtlasGeoJson(localCfg.sourcePath, function (gj) {
+            if (!gj || !atlasMap || !mountedVariantMap[variantKey]) return;
+            var effBefore = atlasMap.getLayer("study-area-mask-fill") ? "study-area-mask-fill" : undefined;
+            var vSrc = prefix + "-vec-src";
+            var vFill = prefix + "-vec-fill";
+            var vLine = prefix + "-vec-line";
+            if (!atlasMap.getSource(vSrc)) {
+              atlasMap.addSource(vSrc, { type: "geojson", data: gj });
+              srcIds.push(vSrc);
+            }
+            var initVis = currentVariantKey === variantKey ? "visible" : "none";
+            if (!atlasMap.getLayer(vFill)) {
+              atlasMap.addLayer(
+                {
+                  id: vFill,
+                  type: "fill",
+                  source: vSrc,
+                  layout: { visibility: initVis },
+                  paint: { "fill-color": localCfg.fillExpr, "fill-opacity": localCfg.fillOpacity || 0.84 }
+                },
+                effBefore
+              );
+              lyrSpecs.push({ id: vFill, isVector: true });
+              mountedVariantMap[variantKey].layerIds.push(vFill);
+              attachAtlasFeaturePopup(vFill, localCfg.badge);
+            }
+            if (!atlasMap.getLayer(vLine)) {
+              var linePaint = localCfg.fineMesh
+                ? {
+                    "line-color": "#1E293B",
+                    "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.04, 11.5, 0.14, 13.5, 0.35, 16, 0.8],
+                    "line-opacity": ["interpolate", ["linear"], ["zoom"], 9, 0.16, 12, 0.36, 15, 0.62]
+                  }
+                : { "line-color": "#1E293B", "line-width": 0.75, "line-opacity": 0.72 };
+              atlasMap.addLayer(
+                {
+                  id: vLine,
+                  type: "line",
+                  source: vSrc,
+                  layout: { visibility: initVis },
+                  paint: linePaint
+                },
+                effBefore
+              );
+              lyrSpecs.push({ id: vLine, isVector: true });
+              mountedVariantMap[variantKey].layerIds.push(vLine);
+            }
+            mountDistrictOutlineForAtlasVariant(prefix, localCfg.districtOutlinePath, effBefore, srcIds, lyrSpecs, variantKey);
+            if (currentVariantKey === variantKey) {
+              syncMountedVariantVisibilities(variantKey);
+            }
+          });
+          return;
+        }
+      }
+
+      // Caso B: Mosaicos satelitales e índices Copernicus globales
       resolveBasemapTiles(variantKey, function () {
         if (!atlasMap.isStyleLoaded()) {
           atlasMap.once("load", function () {
@@ -2867,7 +4564,7 @@
               beforeLayerId
             );
             srcIds.push(uSrc);
-            lyrSpecs.push({ id: uLyr, targetOpacity: uOp });
+            lyrSpecs.push({ id: uLyr, targetOpacity: uOp, isVector: false });
           } else if (bm.lowZoomFallbackTiles) {
             var fSrc = prefix + "-fallback-src";
             var fLyr = prefix + "-fallback-lyr";
@@ -2884,7 +4581,7 @@
               beforeLayerId
             );
             srcIds.push(fSrc);
-            lyrSpecs.push({ id: fLyr, targetOpacity: 1 });
+            lyrSpecs.push({ id: fLyr, targetOpacity: 1, isVector: false });
           }
 
           var mSrc = prefix + "-main-src";
@@ -2906,7 +4603,7 @@
             beforeLayerId
           );
           srcIds.push(mSrc);
-          lyrSpecs.push({ id: mLyr, targetOpacity: 1 });
+          lyrSpecs.push({ id: mLyr, targetOpacity: 1, isVector: false });
 
           if (bm.overlayTiles) {
             var oSrc = prefix + "-overlay-src";
@@ -2925,7 +4622,7 @@
               beforeLayerId
             );
             srcIds.push(oSrc);
-            lyrSpecs.push({ id: oLyr, targetOpacity: oOp });
+            lyrSpecs.push({ id: oLyr, targetOpacity: oOp, isVector: false });
           }
 
           mountedVariantMap[variantKey] = {
@@ -2939,15 +4636,7 @@
 
         // Si aún estamos en este variantKey como objetivo activo, hacer cross-fade de opacidad
         if (currentVariantKey !== variantKey) return;
-        Object.keys(mountedVariantMap).forEach(function (vk) {
-          var info = mountedVariantMap[vk];
-          var isTarget = vk === variantKey;
-          (info.specs || []).forEach(function (sp) {
-            if (atlasMap.getLayer(sp.id)) {
-              atlasMap.setPaintProperty(sp.id, "raster-opacity", isTarget ? sp.targetOpacity : 0);
-            }
-          });
-        });
+        syncMountedVariantVisibilities(variantKey);
       });
     }
 
@@ -3729,7 +5418,8 @@
     }
 
     function loadSingleProjectPerimeter() {
-      var perimUrl = new URL("geovisor/capas/perimetro_zona_estudio.geojson", window.location.origin + baseUrl).href;
+      var customPerimRel = mapContainer.getAttribute("data-perimeter-path") || "geovisor/capas/perimetro_zona_estudio.geojson";
+      var perimUrl = new URL(customPerimRel, window.location.origin + baseUrl).href;
       fetch(perimUrl)
         .then(function (r) {
           return r.ok ? r.json() : null;
