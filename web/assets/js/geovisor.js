@@ -1192,7 +1192,7 @@
       if (!legendContent) return;
       legendContent.textContent = "";
 
-      function appendLegendLayer(title, style, description, visible, symbolLabel) {
+      function appendLegendLayer(title, style, description, visible, symbolLabel, targetContainer) {
         if (!visible) return;
         var layerEl = document.createElement("section");
         layerEl.className = "geovisor-legend-layer";
@@ -1263,7 +1263,7 @@
           descriptionEl.textContent = description;
           layerEl.appendChild(descriptionEl);
         }
-        legendContent.appendChild(layerEl);
+        (targetContainer || legendContent).appendChild(layerEl);
       }
 
       var customSymbolLabels = {
@@ -1280,17 +1280,7 @@
         projectLayersById[lyr.id] = lyr;
       });
       var usedLayerIds = {};
-      var legendLayers = [];
-      (Array.isArray(cfg.sidebar_order) ? cfg.sidebar_order : []).forEach(function (layerId) {
-        if (projectLayersById[layerId]) {
-          legendLayers.push(projectLayersById[layerId]);
-          usedLayerIds[layerId] = true;
-        }
-      });
-      projectLayers.forEach(function (lyr) {
-        if (!usedLayerIds[lyr.id]) legendLayers.push(lyr);
-      });
-      legendLayers.forEach(function (lyr) {
+      function appendProjectLayer(lyr, targetContainer) {
         if (!lyr.source_path || (lyr.status !== "publicado" && lyr.status !== "en_revision")) return;
         var toggle = document.querySelector('[data-layer-toggle="' + lyr.id + '"]');
         appendLegendLayer(
@@ -1298,9 +1288,37 @@
           lyr.style || {},
           lyr.caveat || "",
           !toggle || toggle.checked,
-          customSymbolLabels[lyr.id] || "Símbolo de la capa"
+          customSymbolLabels[lyr.id] || "Símbolo de la capa",
+          targetContainer
         );
+      }
+      (Array.isArray(cfg.sidebar_groups) ? cfg.sidebar_groups : []).forEach(function (group) {
+        var groupContent = document.createElement("div");
+        groupContent.className = "geovisor-legend-group";
+        (Array.isArray(group.layers) ? group.layers : []).forEach(function (layerId) {
+          var lyr = projectLayersById[layerId];
+          if (!lyr) return;
+          usedLayerIds[layerId] = true;
+          appendProjectLayer(lyr, groupContent);
+        });
+        if (groupContent.children.length) {
+          var groupTitle = document.createElement("h3");
+          groupTitle.className = "geovisor-legend-group-title";
+          groupTitle.textContent = group.title || "Capas";
+          legendContent.appendChild(groupTitle);
+          legendContent.appendChild(groupContent);
+        }
       });
+      var remainingProjectLayers = projectLayers.filter(function (lyr) {
+        return !usedLayerIds[lyr.id];
+      });
+      if (remainingProjectLayers.length) {
+        var otherTitle = document.createElement("h3");
+        otherTitle.className = "geovisor-legend-group-title";
+        otherTitle.textContent = "Otras capas";
+        legendContent.appendChild(otherTitle);
+        remainingProjectLayers.forEach(function (lyr) { appendProjectLayer(lyr, legendContent); });
+      }
 
       Object.keys(dynamicFolderLayers).forEach(function (name) {
         var entry = dynamicFolderLayers[name];

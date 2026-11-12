@@ -866,12 +866,17 @@ def build_aplicacion_page(
     mv = layers_cfg.get("map_view", {})
     all_layers = layers_cfg.get("layers", [])
     layers_by_id = {lyr.get("id"): lyr for lyr in all_layers}
-    sidebar_order = [
-        layer_id for layer_id in layers_cfg.get("sidebar_order", [])
-        if layer_id in layers_by_id
-    ]
-    primary_layers = [layers_by_id[layer_id] for layer_id in sidebar_order]
-    primary_ids = set(sidebar_order)
+    sidebar_groups = []
+    primary_ids: set[str] = set()
+    for group in layers_cfg.get("sidebar_groups", []):
+        group_layers = [
+            layers_by_id[layer_id]
+            for layer_id in group.get("layers", [])
+            if layer_id in layers_by_id
+        ]
+        if group_layers:
+            sidebar_groups.append((group.get("title", "Capas principales"), group_layers))
+            primary_ids.update(lyr["id"] for lyr in group_layers)
     remaining_layers = [lyr for lyr in all_layers if lyr.get("id") not in primary_ids]
 
     def render_layer_card(lyr: dict[str, Any]) -> str:
@@ -914,9 +919,9 @@ def build_aplicacion_page(
         grouped.setdefault(grp, []).append(lyr)
 
     groups_html: list[str] = []
-    if primary_layers:
-        primary_html = "".join(render_layer_card(lyr) for lyr in primary_layers)
-        groups_html.append('<div class="layer-group-title">Capas principales</div>' + primary_html)
+    for group_title, group_layers in sidebar_groups:
+        group_html = "".join(render_layer_card(lyr) for lyr in group_layers)
+        groups_html.append(f'<div class="layer-group-title">{esc(group_title)}</div>' + group_html)
     if grouped:
         groups_html.append('<div class="layer-group-title">Otras capas</div>')
     for grp_name, items in grouped.items():

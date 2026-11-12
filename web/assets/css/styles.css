@@ -1482,6 +1482,12 @@ tr:last-child td {
   font-size: 0.84rem;
 }
 
+.geovisor-legend-group-title {
+  margin: 0.38rem 0 0.12rem;
+  color: var(--c-brand-blue);
+  font-size: 0.75rem;
+}
+
 .geovisor-legend-layer {
   padding: 0.32rem 0;
   border-top: 1px solid var(--c-border);
