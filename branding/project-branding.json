@@ -2,8 +2,8 @@
   "schema_version": "1.0.0",
   "project_id": "pa-panama-oeste",
   "theme_version": "2.0.0-copernicus-2026",
-  "updated_at": "2026-11-12",
-  "notes": "Identidad local de Panamá Oeste (Arraiján y La Chorrera). Combina la institución principal declarada en ficha (MIVIOT, en formato textual legible mientras se incorpora su archivo vectorial) y los logos documentados en la presentación técnica del Grupo 1.",
+  "updated_at": "2026-11-13",
+  "notes": "Identidad local de Panamá Oeste (Arraiján y La Chorrera): Ministerio de Vivienda y Ordenamiento Territorial de Panamá (MIVIOT) y Presidencia Pro Tempore del SICA.",
   "project_logo": null,
   "institutions": [
     {
@@ -27,28 +27,6 @@
       "url": "https://www.sica.int/",
       "order": 2,
       "aspect_hint": "vertical"
-    },
-    {
-      "id": "universidad-granada",
-      "name": "Universidad de Granada",
-      "acronym": "UGR",
-      "role": "Colaboración académica documentada en presentación",
-      "logo_path": "branding/logos/logo-universidad-granada.png",
-      "alt_text": "Logo de la Universidad de Granada",
-      "url": "https://www.ugr.es/",
-      "order": 3,
-      "aspect_hint": "horizontal"
-    },
-    {
-      "id": "4tech-gis",
-      "name": "4Tech GIS",
-      "acronym": "4Tech",
-      "role": "Soporte técnico geoespacial en presentación del caso",
-      "logo_path": "branding/logos/logo-4tech-gis.png",
-      "alt_text": "Logo de 4Tech GIS",
-      "url": null,
-      "order": 4,
-      "aspect_hint": "square"
     }
   ]
 }
